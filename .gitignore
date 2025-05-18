@@ -133,3 +133,5 @@ docs/
 .pre-commit-config.yaml
 .readthedocs.yaml
 Notice.txt
+recipe/
+tests/
