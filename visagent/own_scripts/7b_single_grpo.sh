@@ -1,9 +1,10 @@
 set -x
 ENGINE=${1:-vllm}
 DATA_DIR=${2:-"data/mmk12"}
-MODEL_DIR=${3:-"~/checkpoints/Qwen2.5-VL-7B-Instruct"}
+MODEL_DIR=${3:-"/home/checkpoints/Qwen2.5-VL-7B-Instruct"}
 # If you are using vllm<=0.6.3, you might need to set the following environment variable to avoid bugs:
 # export VLLM_ATTENTION_BACKEND=XFORMERS
+export NCCL_DEBUG=INFO
 
 CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 -m verl.trainer.main_ppo \
     algorithm.adv_estimator=grpo \
@@ -12,7 +13,6 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 -m verl.trainer.main_ppo \
     data.train_batch_size=512 \
     data.max_prompt_length=2048 \
     data.max_response_length=2048 \
-    data.filter_overlong_prompts=True \
     data.truncation='error' \
     data.image_key=images \
     actor_rollout_ref.model.path=$MODEL_DIR \
@@ -40,10 +40,10 @@ CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 python3 -m verl.trainer.main_ppo \
     algorithm.use_kl_in_reward=False \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb'] \
-    trainer.project_name='mmk12_7b_grpo' \
-    trainer.experiment_name='qwen2_5_vl_7b_mmk12_20250523_qilong' \
+    trainer.project_name='7b_mmk12_grpo_zero' \
+    trainer.experiment_name='7b_mmk12_group_20250523_qilong' \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=1 \
     trainer.save_freq=20 \
     trainer.test_freq=5 \
-    trainer.total_epochs=3 > run_qwen2_5_vl-7b.log 2>&1
+    trainer.total_epochs=15 > run_qwen2_5_vl-7b.log 2>&1
