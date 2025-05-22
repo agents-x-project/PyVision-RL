@@ -1,4 +1,4 @@
-# Copyright 2024 Bytedance Ltd. and/or its affiliates
+# Copyright 2025 Agent-X Team
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Preprocess the Geometry3k dataset to parquet format
-PYTHONPATH=. python examples/data_preprocess/geo3k.py --local_dir data/geo3k
+Preprocess the MMK12 dataset to parquet format
+
+huggingface-cli login
+PYTHONPATH=. python examples/data_preprocess/mmk12.py --local_dir data/mmk12 --n_test 707
 """
 
 import argparse
@@ -25,17 +27,19 @@ from verl.utils.hdfs_io import copy, makedirs
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--local_dir", default="~/data/geo3k")
+    parser.add_argument("--local_dir", default="data/mmk12")
     parser.add_argument("--hdfs_dir", default=None)
-
+    parser.add_argument("--n_test", default=707)
     args = parser.parse_args()
 
-    data_source = "hiyouga/geometry3k"
+    data_source = "Agents-X/MMK12"
+    os.makedirs(args.local_dir, exist_ok=True)
+    dataset = datasets.load_dataset(data_source, data_dir="data", split="train")
+    n = len(dataset)
+    n_train = n - args.n_test
 
-    dataset = datasets.load_dataset(data_source)
-
-    train_dataset = dataset["train"]
-    test_dataset = dataset["test"]
+    train_dataset = dataset.select(range(n_train))
+    test_dataset = dataset.select(range(n_train, n))
 
     instruction_following = (
         r"You FIRST think about the reasoning process as an internal monologue and then provide the final answer. "
@@ -45,10 +49,10 @@ if __name__ == "__main__":
     # add a row to each data item that represents a unique id
     def make_map_fn(split):
         def process_fn(example, idx):
-            problem = example.pop("problem")
+            problem = "<image>" + example.pop("question")
             prompt = problem + " " + instruction_following
-            answer = example.pop("answer")
-            images = example.pop("images")
+            answer = example.pop("correct_answer")
+            images = example.pop("image")
 
             data = {
                 "data_source": data_source,
@@ -58,7 +62,7 @@ if __name__ == "__main__":
                         "content": prompt,
                     }
                 ],
-                "images": images,
+                "images": [images],
                 "ability": "math",
                 "reward_model": {"style": "rule", "ground_truth": answer},
                 "extra_info": {
@@ -72,8 +76,8 @@ if __name__ == "__main__":
 
         return process_fn
 
-    train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True, num_proc=8)
-    test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True, num_proc=8)
+    train_dataset = train_dataset.map(function=make_map_fn("train"), with_indices=True, num_proc=16)
+    test_dataset = test_dataset.map(function=make_map_fn("test"), with_indices=True, num_proc=16)
 
     local_dir = args.local_dir
     hdfs_dir = args.hdfs_dir

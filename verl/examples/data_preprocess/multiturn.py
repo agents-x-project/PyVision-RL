@@ -13,6 +13,7 @@
 # limitations under the License.
 """
 Create a simple multi-turn dataset for testing
+PYTHONPATH=. python examples/data_preprocess/multiturn.py --local_dir data/multiturn
 """
 
 import argparse
