@@ -21,7 +21,7 @@ cd visagent && PYTHONPATH=. python examples/data_preprocess/mmk12.py --local_dir
 
 ### Training
 ```bash
-cd visagent
+cd visagent && wandb login
 bash own_scripts/7b_single_grpo.sh vllm data/mmk12 /home/checkpoints/Qwen2.5-VL-7B-Instruct
 ```
 
