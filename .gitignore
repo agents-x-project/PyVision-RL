@@ -135,3 +135,15 @@ docs/
 Notice.txt
 recipe/
 tests/
+
+## shitian added
+
+verl/.github
+verl/.vscode
+verl/docker/
+verl/docs/
+verl/.pre-commit-config.yaml
+verl/.readthedocs.yaml
+verl/Notice.txt
+verl/recipe/
+verl/tests/
