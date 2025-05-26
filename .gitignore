@@ -148,3 +148,7 @@ verl/.readthedocs.yaml
 verl/Notice.txt
 verl/recipe/
 verl/tests/
+verl_agents/outputs/
+verl_agents/save_ckpts/
+verl_agents/verl.egg-info/
+verl_agents/wandb/

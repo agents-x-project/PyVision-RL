@@ -28,10 +28,20 @@ bash own_scripts/7b_single_grpo.sh vllm data/mmk12 /home/checkpoints/Qwen2.5-VL-
 ## 2. Multi-Turn with Tool Using
 To be built for multi-turn with tool using.
 
-### TO DO
-- [❌] Adapt from LLM multiturn tool to visual agent multiturn tool.
-- [❌] Integrate sandbox in the inference pipeline.
-- [❌] Build multi-turn with tool using.
+### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge
+```bash
+cd verl_agents
+bash serve_llm.sh
+```
+Test if the served llm works:
+```bash
+python test_call_qwen_serve.py
+```
+
+### Train
+```bash
+bash run_train.sh
+```
 
 
 ## 3. Reference Resources
@@ -39,4 +49,4 @@ To be built for multi-turn with tool using.
 - https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L206
 - https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L153
 - https://github.com/bytedance/SandboxFusion
-https://github.com/QwenLM/Qwen-Agent
+- https://github.com/QwenLM/Qwen-Agent
