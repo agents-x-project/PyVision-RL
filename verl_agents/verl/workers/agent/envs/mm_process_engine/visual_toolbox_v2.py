@@ -11,7 +11,7 @@ from math import ceil, floor
 # ToolBase.registry = {}
 
 class VisualToolBoxV2(ToolBase):
-    name = "visual_toolbox_v2"
+    name = "visual_toolbox_v2_ori"
     # user_prompt = "Here is the cropped image returned after you calling the function {}.\nIf the images provided above are sufficient to answer the user's question, please put your final answer within <answer></answer>. Otherwise you can continue to call tools within <tool_call></tool_call>."
 
     user_prompt = PROMPT.USER_PROMPT_V2

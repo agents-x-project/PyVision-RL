@@ -14,7 +14,8 @@ from verl.workers.agent.tool_envs import ToolBase
 from contextlib import redirect_stdout
 
 class MultiModalPythonTool(ToolBase):
-    name = "multi_modal_python_tool"
+    # name = "multi_modal_python_tool"
+    name = "visual_toolbox_v2"
     description = "Tool for executing Python code with multimodal capabilities"
     
     def __init__(self, _name=None, _desc=None, _params=None, **kwargs):
@@ -47,6 +48,9 @@ class MultiModalPythonTool(ToolBase):
             return "", 0.0, True, {"final_answer": answer}
         
         code = self.extract_code(action_string)
+        # print("#"*20)
+        # print(code)
+        # print("#"*20)
         if not code:
             error_msg = "No Python code found. Please provide code between <code>```python and ```</code> tags."
             obs = f"\n<|im_start|>user\n<interpreter>Error: {error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
@@ -69,7 +73,7 @@ class MultiModalPythonTool(ToolBase):
                         interpreter_content += f"Text Result:\n{result['text']}\n"
                     
                     if 'images' in result and result['images']:
-                        interpreter_content += f"Image Result:\n"
+                        interpreter_content += f"Image Result:\n<image>"
                         
                         # Create multi_modal_data with generated images
                         images = []

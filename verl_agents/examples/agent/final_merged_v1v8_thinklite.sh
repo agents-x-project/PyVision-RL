@@ -1,7 +1,7 @@
 set -x
 
 PROJECT_NAME="agent_vlagent"
-EXPERIMENT_NAME="debug_for_single_node"
+EXPERIMENT_NAME="qwen25vl_7b_sft_v1"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/DeepEyes/save_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -13,11 +13,16 @@ VISUAL_DATASET_TRAIN_0_8=${BASEDIR}/data_v0.8_visual_toolbox_v2.parquet
 VISUAL_DATASET_TEST=${BASEDIR}/seekworld_test.parquet
 EUREKA_DATASET_TRAIN=${BASEDIR}/data_thinklite_reasoning_acc.parquet
 
-REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/Qwen2.5-VL-7B-Instruct
+PYVISION_DATASET_TRAIN_0=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/reformed_data/data_0.1.2_visual_toolbox_v2/train_1.parquet
+PYVISION_DATASET_TRAIN_1=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/reformed_data/data_0.1.2_visual_toolbox_v2/train_2.parquet
+PYVISION_DATASET_TRAIN_2=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/reformed_data/data_0.1.2_visual_toolbox_v2/train_3.parquet
+PYVISION_DATASET_TRAIN_3=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/reformed_data/data_0.1.2_visual_toolbox_v2/train_4.parquet
+
+REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/agents_x_data/sft_ckpt/qwen2_5vl-7b-2/full/sft
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=False \
     +vs_debug=False \
-    data.train_files=[${VISUAL_DATASET_TRAIN_0_1_2},${VISUAL_DATASET_TRAIN_0_8},${EUREKA_DATASET_TRAIN}] \
+    data.train_files=[${PYVISION_DATASET_TRAIN_0}] \
     data.val_files=[${EUREKA_DATASET_TRAIN}] \
     data.train_batch_size=64 \
     data.max_prompt_length=8192 \
