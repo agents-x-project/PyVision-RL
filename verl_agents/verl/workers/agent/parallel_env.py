@@ -362,8 +362,14 @@ def execute_tool_call(sample, tokenizer=None, processor=None, pbar=None):
         elif len(prompt_str) == 0 and len(chat_list) > 0:
             prompt_str = tokenizer.apply_chat_template(chat_list, add_generation_prompt=True, tokenize=False)
             prompt_str = _strip_system_block(prompt_str)
+            # print("#######################################")
+            # print(prompt_str)
+            # print("##########################################")
 
         prompt_str_vllm, obs_token_ids_model, mm_inputs = _preprocess_multi_modal_inputs(prompt_str, processor, **tool_result)
+        # print("#######################################")
+        # print(obs_token_ids_model)
+        # print("##########################################")
         obs_token_ids_vllm = tokenizer.encode(prompt_str_vllm, add_special_tokens=False, return_tensors='pt')[0]
         tool_result_info = {
             "prompt_token_ids_vllm": obs_token_ids_vllm,

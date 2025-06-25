@@ -28,6 +28,28 @@ from transformers import PreTrainedTokenizer, ProcessorMixin
 import verl.utils.torch_functional as verl_F
 from verl.utils.model import compute_position_id_with_mask
 
+def process_prompt_init(question, image_path, tokenizer, prompt_template, prompt_type):
+    with open(prompt_template, "r") as fin:
+        sys = json.load(fin)
+    prompt_prefix = sys[prompt_type]
+
+    img_result = encode_image(image_path)
+    image_base64 = img_result['base64']
+    width = img_result['width']
+    height = img_result['height']
+    question_with_options = question
+
+    messages = [
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": "<image_clue_0>"}] + [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}] + [{"type": "text", "text": "</image_clue_0>\n\n"}] + [{"type": "text", "text": prompt_prefix.format(query=question_with_options, width=str(width), height=str(height))}]
+        }
+    ]
+
+    chat_prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
+    return chat_prompt, messages
+
 
 def collate_fn(data_list: list[dict]) -> dict:
     tensors = defaultdict(list)
@@ -150,12 +172,34 @@ class RLHFDataset(Dataset):
 
         return messages
 
+    def _build_messages_pyvision(self, example: dict):
+        messages: list = example.pop(self.prompt_key)
+
+        if self.image_key in example or self.video_key in example:
+            for message in messages:
+                content = message["content"]
+                content_list = []
+                for segment in re.split("(<image>|<video>)", content):
+                    if segment == "<image>":
+                        content_list.append({"type": "text", "text": "<image_clue_0>"})
+                        content_list.append({"type": "image"})
+                        content_list.append({"type": "text", "text": "</image_clue_0>"})
+                    elif segment == "<video>":
+                        content_list.append({"type": "video"})
+                    else:
+                        content_list.append({"type": "text", "text": segment})
+
+                message["content"] = content_list
+
+        return messages
+
     def __getitem__(self, item):
         """
         Note that we also return the raw_input_ids so that it can be combined with other chat template
         """
         row_dict: dict = self.dataframe[item]
-        messages = self._build_messages(row_dict)
+        # messages = self._build_messages(row_dict)
+        messages = self._build_messages_pyvision(row_dict)
         model_inputs = {}
 
         if self.processor is not None:

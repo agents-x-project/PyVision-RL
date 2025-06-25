@@ -17,21 +17,30 @@ from contextlib import redirect_stdout
 
 class SafeImageRuntime:
     """安全版本的Runtime，强制使用隔离环境"""
+
+    HEADERS = [
+        "import matplotlib",
+        "matplotlib.use('Agg')",  # 使用非交互式后端
+        "import matplotlib.pyplot as plt",
+        "from PIL import Image",
+        "import io",
+        "import base64",
+        "import numpy as np",
+        "_captured_figures = []",  # 初始化图像捕获列表
+    ]
+
     def __init__(self, messages=None):
         # 必须在所有plt导入前设置后端
         import matplotlib
         matplotlib.use('Agg')
         
         self._global_vars = {
-            "__builtins__": copy.copy(__builtins__),
             "_captured_figures": [],
-            "plt": plt,
-            "np": np,
-            "Image": Image,
-            "io": io,
-            "base64": base64
         }
-        
+
+        for c in self.HEADERS:
+            exec(c, self._global_vars)
+
         # 初始化图像变量
         if messages:
             image_var_dict = {}
@@ -69,7 +78,8 @@ plt.close()
         return self._global_vars.get("_captured_figures", [])
 
 class MultiModalPythonTool(ToolBase):
-    name = "multi_modal_python_tool"
+    # name = "multi_modal_python_tool"
+    name = "visual_toolbox_v2"
     description = "Tool for executing Python code with multimodal capabilities"
     
     def __init__(self, _name=None, _desc=None, _params=None, **kwargs):
@@ -161,15 +171,81 @@ class MultiModalPythonTool(ToolBase):
                 report = "Done"
             
             if report == "Done":
-                obs_content = result.get('text', '')
+                obs_content = result.get('text', 'None')
                 
                 if 'images' in result and result['images']:
                     images = [self._base64_to_image(img) for img in result['images']]
+                    image_content = []
+                    image_clue_idx = len(self.multi_modal_data['image'])
+                    for _ in range(len(images)):
+                        interpreter_message_images = [{"type": "text", "text": f"<image_clue_{image_clue_idx}>"}] + [{"type": "text", "text": "<image>"}] + [{"type": "text", "text": f"</image_clue_{image_clue_idx}>"}]
+                        image_content += interpreter_message_images
+                        image_clue_idx += 1
+                    content_prefix = [
+                        {
+                            "type": "text",
+                            "text": "<interpreter>"
+                        },
+                        {
+                            "type": "text",
+                            "text": f"Text Result:\n{obs_content}\n"
+                        },
+                        {
+                            "type": "text",
+                            "text": "Image Result:\n"
+                        },
+                    ]
+                    content_subfix = [
+                        {
+                            "type": "text",
+                            "text": "</interpreter>\n"
+                        }
+                    ]
+                    obs_chat = [
+                        {
+                            "role": "observation",
+                            "content": content_prefix + image_content + content_subfix
+                        }
+                    ]
+                    # obs = {
+                    #     "prompt": f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n",
+                    #     "multi_modal_data": {"image": [img for img in images if img]}
+                    # }
                     obs = {
-                        "prompt": f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n",
+                        "prompt": "",
+                        "chat": obs_chat,
                         "multi_modal_data": {"image": [img for img in images if img]}
+                    }
                 else:
-                    obs = f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+                    # obs = f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+                    obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+                    # obs_chat = [
+                    #     {
+                    #         "role": "observation",
+                    #         "content": [
+                    #             {
+                    #                 "type": "text",
+                    #                 "text": "<interpreter>"
+                    #             },
+                    #             {
+                    #                 "type": "text",
+                    #                 "text": f"Text Result:\n{obs_content}"
+                    #             },
+                    #             {
+                    #                 "type": "text",
+                    #                 "text": "</interpreter>\n"
+                    #             }
+                    #         ]
+                    #     }
+                    # ]
+                    # obs = {
+                    #     "prompt": f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n",
+                    #     "multi_modal_data": {"image": [img for img in images if img]}
+                    # }
+                    # obs = {
+                    #     "prompt": "",
+                    #     "chat": obs_chat,
+                    # }
                 
                 return obs, 0.1, False, {"status": "success"}
             else:
