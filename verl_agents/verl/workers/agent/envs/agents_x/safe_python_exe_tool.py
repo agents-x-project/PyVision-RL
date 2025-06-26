@@ -87,11 +87,17 @@ class MultiModalPythonTool(ToolBase):
         self.chatml_history = []
         self.multi_modal_data = None
         self.use_process_isolation = True  # 默认启用进程隔离
+        self.runtime = None
     
     def _execute_in_process(self, code: str, messages: list) -> Tuple[Any, str]:
         """在子进程中安全执行代码"""
         def worker(code: str, messages: list, queue: Queue):
             try:
+                # if self.runtime is None:
+                #     runtime = SafeImageRuntime(messages)
+                #     self.runtime = runtime
+                # else:
+                #     runtime = self.runtime
                 runtime = SafeImageRuntime(messages)
                 program_io = io.StringIO()
                 
@@ -154,6 +160,11 @@ class MultiModalPythonTool(ToolBase):
         
         try:
             messages = self._convert_to_messages(self.multi_modal_data)
+            if self.runtime is None:
+                preexe_figures_num = 1
+            else:
+                preexe_figures_num = len(self.runtime.captured_figures())
+                print(f"##################### preexe_figures_num: {preexe_figures_num}")
             
             if self.use_process_isolation:
                 result, report = self._execute_in_process(code, messages)
@@ -174,9 +185,11 @@ class MultiModalPythonTool(ToolBase):
                 obs_content = result.get('text', 'None')
                 
                 if 'images' in result and result['images']:
-                    images = [self._base64_to_image(img) for img in result['images']]
+                    images = [self._base64_to_image(img) for img in result['images'][preexe_figures_num:]]
                     image_content = []
-                    image_clue_idx = len(self.multi_modal_data['image'])
+                    # image_clue_idx = len(self.multi_modal_data['image'])
+                    # concurrent_figures = self.runtime.captured_figures()
+                    image_clue_idx = preexe_figures_num
                     for _ in range(len(images)):
                         interpreter_message_images = [{"type": "text", "text": f"<image_clue_{image_clue_idx}>"}] + [{"type": "text", "text": "<image>"}] + [{"type": "text", "text": f"</image_clue_{image_clue_idx}>"}]
                         image_content += interpreter_message_images
@@ -207,45 +220,13 @@ class MultiModalPythonTool(ToolBase):
                             "content": content_prefix + image_content + content_subfix
                         }
                     ]
-                    # obs = {
-                    #     "prompt": f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n",
-                    #     "multi_modal_data": {"image": [img for img in images if img]}
-                    # }
                     obs = {
                         "prompt": "",
                         "chat": obs_chat,
                         "multi_modal_data": {"image": [img for img in images if img]}
                     }
                 else:
-                    # obs = f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
                     obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
-                    # obs_chat = [
-                    #     {
-                    #         "role": "observation",
-                    #         "content": [
-                    #             {
-                    #                 "type": "text",
-                    #                 "text": "<interpreter>"
-                    #             },
-                    #             {
-                    #                 "type": "text",
-                    #                 "text": f"Text Result:\n{obs_content}"
-                    #             },
-                    #             {
-                    #                 "type": "text",
-                    #                 "text": "</interpreter>\n"
-                    #             }
-                    #         ]
-                    #     }
-                    # ]
-                    # obs = {
-                    #     "prompt": f"\n<|im_start|>user\n<interpreter>{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n",
-                    #     "multi_modal_data": {"image": [img for img in images if img]}
-                    # }
-                    # obs = {
-                    #     "prompt": "",
-                    #     "chat": obs_chat,
-                    # }
                 
                 return obs, 0.1, False, {"status": "success"}
             else:

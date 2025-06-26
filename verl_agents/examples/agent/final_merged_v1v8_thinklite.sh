@@ -3,7 +3,7 @@ set -x
 PROJECT_NAME="agent_vlagent"
 EXPERIMENT_NAME="qwen25vl_7b_sft_v1"
 
-export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/DeepEyes/save_ckpts
+export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/agents_x_data/rl_ckpt
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
 
 BASEDIR=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k
@@ -58,16 +58,16 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.activate_agent=True \
     actor_rollout_ref.rollout.agent.tool_name_key=env_name \
     actor_rollout_ref.rollout.agent.single_response_max_tokens=10240 \
-    actor_rollout_ref.rollout.agent.max_turns=5 \
+    actor_rollout_ref.rollout.agent.max_turns=20 \
     actor_rollout_ref.rollout.agent.concurrent_workers=1 \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
-    +trainer.rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/rollouts \
+    +trainer.rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/rollouts/1 \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb','rl_logging_board'] \
     trainer.val_before_train=False \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=${WORLD_SIZE} \
-    trainer.save_freq=8 \
+    trainer.save_freq=100 \
     trainer.test_freq=10000 \
     trainer.project_name=${PROJECT_NAME} \
     trainer.experiment_name=${EXPERIMENT_NAME} \
