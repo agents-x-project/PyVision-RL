@@ -177,12 +177,16 @@ class SafeImageRuntime:
 
         if messages:
             image_var_dict = {}
+            init_captured_figures = []
             for i, message in enumerate(messages):
                 for item in message.get('content', []):
                     if item.get('type') == "image_url":
                         img = base64_to_image(item['image_url']['url'])
                         if img:
                             image_var_dict[f"image_clue_{i}"] = img
+                            init_captured_figures.append(img)
+
+            image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)
     
     def exec_code(self, code: str) -> None:
