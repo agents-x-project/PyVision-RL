@@ -28,6 +28,21 @@ bash own_scripts/7b_single_grpo.sh vllm data/mmk12 /home/checkpoints/Qwen2.5-VL-
 ## 2. Multi-Turn with Tool Using
 To be built for multi-turn with tool using.
 
+### Installation
+```bash
+conda create -n pyvision-agent python=3.10
+conda activate pyvision-agent
+
+# if your cuda version is 12.1
+pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+pip install flash-attn --no-build-isolation
+pip install vllm
+
+pip install -r env_files/requirements_agent.txt
+# Follow the VeRL official installation procedure
+pip install -e .
+```
+
 ### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge
 ```bash
 cd verl_agents
