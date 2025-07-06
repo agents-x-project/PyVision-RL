@@ -153,3 +153,4 @@ verl_agents/save_ckpts/
 verl_agents/verl.egg-info/
 verl_agents/wandb/
 rollouts/
+verl_agents/slurm-*
