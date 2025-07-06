@@ -1,0 +1,23 @@
++ echo 'Run Node: HOST-10-140-60-[55,75]'
+Run Node: HOST-10-140-60-[55,75]
++ RAYLOG=/tmp/ma-ray
++ echo 'RAYLOG /tmp/ma-ray'
+RAYLOG /tmp/ma-ray
++ head_node_ip=10.140.60.106
++ port=6379
++ ip_head=10.140.60.106:6379
++ export ip_head
++ echo 'IP Head: 10.140.60.106:6379'
+IP Head: 10.140.60.106:6379
++ ray start --address 10.140.60.106:6379 --temp-dir=/tmp/ma-ray --num-cpus 16 --num-gpus 8 --block
+[2025-07-06 22:21:59,095 W 48939 48939] global_state_accessor.cc:435: Retrying to get node with node ID c99bcd712b50d435095ce6c0aa32e5d27099442e08b48b88e198d52b
+2025-07-06 22:21:58,835	WARN scripts.py:826 -- [33m`--temp-dir=/tmp/ma-ray` option will be ignored. `--head` is a required flag to use `--temp-dir`. temp_dir is only configurable from a head node. All the worker nodes will use the same temp_dir as a head node. [39m
+2025-07-06 22:21:58,835	INFO scripts.py:1152 -- [37mLocal node IP[39m: [1m10.140.60.55[22m
+2025-07-06 22:22:00,097	SUCC scripts.py:1168 -- [32m--------------------[39m
+2025-07-06 22:22:00,097	SUCC scripts.py:1169 -- [32mRay runtime started.[39m
+2025-07-06 22:22:00,097	SUCC scripts.py:1170 -- [32m--------------------[39m
+2025-07-06 22:22:00,097	INFO scripts.py:1172 -- To terminate the Ray runtime, run
+2025-07-06 22:22:00,097	INFO scripts.py:1173 -- [1m  ray stop[22m
+2025-07-06 22:22:00,098	INFO scripts.py:1181 -- [36m[1m--block[22m[39m
+2025-07-06 22:22:00,098	INFO scripts.py:1182 -- This command will now block forever until terminated by a signal.
+2025-07-06 22:22:00,098	INFO scripts.py:1185 -- Running subprocesses are monitored and a message will be printed if any of them terminate unexpectedly. Subprocesses exit with SIGTERM will be treated as graceful, thus NOT reported.

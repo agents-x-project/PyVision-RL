@@ -1,0 +1,18 @@
++ echo 'Run Node: HOST-10-140-60-[83,112]'
+Run Node: HOST-10-140-60-[83,112]
++ RAYLOG=/tmp/ma-ray
++ echo 'RAYLOG /tmp/ma-ray'
+RAYLOG /tmp/ma-ray
++ head_node_ip=10.140.66.94
++ port=6379
++ ip_head=10.140.66.94:6379
++ export ip_head
++ echo 'IP Head: 10.140.66.94:6379'
+IP Head: 10.140.66.94:6379
++ ray start --address 10.140.66.94:6379 --temp-dir=/tmp/ma-ray --num-cpus 16 --num-gpus 8 --block
+[2025-07-06 22:19:24,150 W 2598 2598] gcs_rpc_client.h:151: Failed to connect to GCS at address 10.140.66.94:6379 within 5 seconds.
+[2025-07-06 22:19:54,154 W 2598 2598] gcs_client.cc:182: Failed to get cluster ID from GCS server: TimedOut: Timed out while waiting for GCS to become available.
+[2025-07-06 22:20:00,163 W 2598 2598] gcs_rpc_client.h:151: Failed to connect to GCS at address 10.140.66.94:6379 within 5 seconds.
+[2025-07-06 22:20:30,166 W 2598 2598] gcs_client.cc:182: Failed to get cluster ID from GCS server: TimedOut: Timed out while waiting for GCS to become available.
+[2025-07-06 22:20:36,174 W 2598 2598] gcs_rpc_client.h:151: Failed to connect to GCS at address 10.140.66.94:6379 within 5 seconds.
+slurmstepd: error: *** JOB 4612388 ON HOST-10-140-60-83 CANCELLED AT 2025-07-06T22:21:04 ***

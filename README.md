@@ -34,9 +34,10 @@ conda create -n pyvision-agent python=3.10
 conda activate pyvision-agent
 
 # if your cuda version is 12.1
-pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu121
+pip install torch==2.4.0 torchvision==0.19.0 torchaudio==2.4.0 --index-url https://download.pytorch.org/whl/cu121
 pip install flash-attn --no-build-isolation
-# if fail to install pip install vllm==0.8.2
+# if fail to install pip install vllm==0.8.3
+pip install -U xformers --index-url https://download.pytorch.org/whl/cu121
 pip install vllm
 
 pip install qwen-vl-utils[decord]==0.0.8
@@ -44,6 +45,7 @@ pip install qwen-vl-utils[decord]==0.0.8
 # pip install -r env_files/requirements_agent.txt
 # Follow the VeRL official installation procedure
 pip install -e .
+bash ./verl_agents/scripts/install_deepeyes.sh
 ```
 
 ### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge

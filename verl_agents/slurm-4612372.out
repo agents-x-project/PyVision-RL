@@ -1,0 +1,21 @@
++ RAYLOG=/tmp/ma-ray
+++ scontrol show hostnames HOST-10-140-60-106
++ nodes=HOST-10-140-60-106
++ nodes_array=($nodes)
++ head_node=HOST-10-140-60-106
+++ srun --nodes=1 --ntasks=1 -w HOST-10-140-60-106 hostname --ip-address
++ head_node_ip=10.140.60.106
++ [[ 10.140.60.106 == *\ * ]]
++ port=6379
++ ip_head=10.140.60.106:6379
++ export ip_head
++ echo 'IP Head: 10.140.60.106:6379'
+IP Head: 10.140.60.106:6379
++ echo 'Starting HEAD at HOST-10-140-60-106'
+Starting HEAD at HOST-10-140-60-106
++ srun --nodes=1 --ntasks=1 -w HOST-10-140-60-106 ray start --head --node-ip-address=10.140.60.106 --port=6379 --temp-dir=/tmp/ma-ray --num-cpus 16 --num-gpus '' --block --dashboard-host=0.0.0.0 --disable-usage-stats
+Usage: ray start [OPTIONS]
+Try 'ray start --help' for help.
+
+Error: Invalid value for '--num-gpus': '' is not a valid integer.
+srun: error: HOST-10-140-60-106: task 0: Exited with exit code 2

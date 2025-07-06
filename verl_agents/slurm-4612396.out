@@ -1,0 +1,5 @@
++ head_node_ip=10.140.60.106
++ RAY_ADDRESS=http://10.140.60.106:8265
++ ray job submit --working-dir . -- bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/slurm_scripts/run_train_single_node.sh
+2025-07-06 22:23:25,386	INFO dashboard_sdk.py:338 -- Uploading package gcs://_ray_pkg_60ca738777c5c5b1.zip.
+2025-07-06 22:23:25,389	INFO packaging.py:576 -- Creating a file package for local module '.'.
