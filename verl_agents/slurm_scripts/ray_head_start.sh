@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --gpus-per-task=0
 #SBATCH --ntasks-per-node=1
-#SBATCH --partition=eaigc1_t
+#SBATCH --partition=Gveval-T
 #SBATCH --quotatype=reserved
 
 set -xe

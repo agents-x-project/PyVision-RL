@@ -21,3 +21,4 @@ IP Head: 10.140.60.106:6379
 2025-07-06 22:22:00,098	INFO scripts.py:1181 -- [36m[1m--block[22m[39m
 2025-07-06 22:22:00,098	INFO scripts.py:1182 -- This command will now block forever until terminated by a signal.
 2025-07-06 22:22:00,098	INFO scripts.py:1185 -- Running subprocesses are monitored and a message will be printed if any of them terminate unexpectedly. Subprocesses exit with SIGTERM will be treated as graceful, thus NOT reported.
+slurmstepd: error: *** JOB 4612392 ON HOST-10-140-60-55 CANCELLED AT 2025-07-06T22:32:44 DUE TO PREEMPTION ***

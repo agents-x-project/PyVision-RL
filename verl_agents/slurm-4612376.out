@@ -39,3 +39,10 @@ Starting HEAD at HOST-10-140-60-106
 2025-07-06 22:09:52,609	INFO scripts.py:1181 -- [36m[1m--block[22m[39m
 2025-07-06 22:09:52,609	INFO scripts.py:1182 -- This command will now block forever until terminated by a signal.
 2025-07-06 22:09:52,609	INFO scripts.py:1185 -- Running subprocesses are monitored and a message will be printed if any of them terminate unexpectedly. Subprocesses exit with SIGTERM will be treated as graceful, thus NOT reported.
+srun: got SIGCONT
+slurmstepd: error: *** JOB 4612376 ON HOST-10-140-60-106 CANCELLED AT 2025-07-07T02:46:30 ***
+srun: Job step aborted: Waiting up to 2 seconds for job step to finish.
+srun: Easily find out why your job was killed by following the link below:
+	https://docs.phoenix.sensetime.com/FAQ/SlurmFAQ/Find-out-why-my-job-was-killed/
+srun: forcing job termination
+slurmstepd: error: *** STEP 4612376.1 ON HOST-10-140-60-106 CANCELLED AT 2025-07-07T02:46:30 ***

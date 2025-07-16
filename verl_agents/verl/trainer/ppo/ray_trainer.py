@@ -123,6 +123,7 @@ class ResourcePoolManager:
     def _check_resource_available(self):
         """Check if the resource pool can be satisfied in this ray cluster."""
         node_available_resources = ray.state.available_resources_per_node()
+        print(f"############# node_available_resources: {node_available_resources}")
         node_available_gpus = {node: node_info.get("GPU", 0) for node, node_info in node_available_resources.items()}
 
         # check total required gpus can be satisfied
@@ -1048,14 +1049,14 @@ class RayPPOTrainer:
 
                         # we combine with rule-based rm
                         reward_extra_infos_dict: dict[str, list]
-                        try:
-                            reward_result = self.reward_fn(batch, return_dict=True)
-                            reward_tensor = reward_result["reward_tensor"]
-                            reward_extra_infos_dict = reward_result["reward_extra_info"]
-                        except Exception as e:
-                            print(f"Error in reward_fn: {e}")
-                            reward_tensor = self.reward_fn(batch)
-                            reward_extra_infos_dict = {}
+                        # try:
+                        reward_result = self.reward_fn(batch, return_dict=True)
+                        reward_tensor = reward_result["reward_tensor"]
+                        reward_extra_infos_dict = reward_result["reward_extra_info"]
+                        # except Exception as e:
+                        #     print(f"Error in reward_fn: {e}")
+                        #     reward_tensor = self.reward_fn(batch)
+                        #     reward_extra_infos_dict = {}
 
                         batch.batch["token_level_scores"] = reward_tensor
 

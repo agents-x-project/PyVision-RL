@@ -63,6 +63,15 @@ python test_call_qwen_serve.py
 bash run_train.sh
 ```
 
+### Evaluation
+
+#### Model Merge
+```bash
+
+```
+
+#### Test
+
 
 ## 3. Reference Resources
 - https://github.com/volcengine/verl/blob/c803b1f76936f134f919f13ebd668473f4f661ed/verl/utils/dataset/multiturn_sft_dataset.py#L108

@@ -4,14 +4,14 @@ set -x
 # export https_proxy=http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/
 # export HTTP_PROXY=http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/
 # export HTTPS_PROXY=http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/
-export LLM_AS_A_JUDGE_BASE="http://10.140.60.133:18901/v1" # 10-140-1-174
-export no_proxy='10.140.60.133:18901'
+# export LLM_AS_A_JUDGE_BASE="http://10.140.60.133:18901/v1" # 10-140-1-174
+# export no_proxy='10.140.60.133:18901'
 # export no_proxy='10.140.60.38:8265'
 export HYDRA_FULL_ERROR=1
 # export WANDB_MODE=offline
 
 PROJECT_NAME="agent_vlagent"
-EXPERIMENT_NAME="qwen25vl_7b_sft_v1_16gpu_2"
+EXPERIMENT_NAME="qwen25vl_7b_sft_v1_8gpu_1"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/agents_x_data/rl_ckpt
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues

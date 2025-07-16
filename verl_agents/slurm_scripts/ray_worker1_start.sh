@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --job-name=ray-worker
-#SBATCH --nodes=2
+#SBATCH --job-name=ray-worker1
+#SBATCH --nodes=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gpus-per-task=8
 #SBATCH --ntasks-per-node=1
