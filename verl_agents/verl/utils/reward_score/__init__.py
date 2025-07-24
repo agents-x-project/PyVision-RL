@@ -15,7 +15,7 @@
 import torch
 
 def _default_compute_score(data_source, solution_str, ground_truth, extra_info=None):
-    print(f"###################################### data_source: {data_source}")
+    # print(f"###################################### data_source: {data_source}")
     if data_source == "openai/gsm8k":
         from . import gsm8k
 
@@ -64,10 +64,10 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
 
     elif data_source in ['vstar', 'vl_agent', 'chart']:
         from verl.utils.reward_score import vl_agent
-        print(f"################################## import the vl_agent successfully.")
+        # print(f"################################## import the vl_agent successfully.")
         # from . import vl_agent
         res = vl_agent.compute_score(solution_str, ground_truth, extra_info)
-        print(f"############################# reward result: {res}")
+        # print(f"############################# reward result: {res}")
 
     elif data_source in ['geoguessr']:
         from . import vl_agent

@@ -155,3 +155,5 @@ verl_agents/wandb/
 rollouts/
 verl_agents/slurm-*
 slurm-*
+logs/
+wandb/

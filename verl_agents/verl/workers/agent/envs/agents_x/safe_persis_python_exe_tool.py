@@ -213,7 +213,7 @@ plt.close()
         return self._global_vars.get("_captured_figures", [])
 
 class MultiModalPythonTool(ToolBase):
-    name = "visual_toolbox_v2"
+    name = "pyvision_gym"
     description = "Tool for executing Python code with multimodal capabilities"
     
     def __init__(self, _name=None, _desc=None, _params=None, **kwargs):

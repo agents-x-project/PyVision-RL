@@ -238,6 +238,26 @@ class ActorRolloutRefWorker(Worker):
 
             if enable_gradient_checkpointing:
                 actor_module.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
+
+###########################################################################################################
+        # if model_config.freeze_vision_tower:
+        if hasattr(actor_module, "model") and hasattr(actor_module.model, "visual"):  # transformers >= 4.52.0
+            actor_module.model.visual.requires_grad_(False)
+            fsdp_config.use_orig_params = True
+            # self.print_rank0("Vision tower is set to not trainable.")
+            if self.rank == 0:
+                print("Vision tower is set to not trainable.")
+        elif hasattr(actor_module, "visual"):  # transformers < 4.52.0
+            actor_module.visual.requires_grad_(False)
+            fsdp_config.use_orig_params = True
+            # self.print_rank0("Vision tower is set to not trainable.")
+            if self.rank == 0:
+                print("Vision tower is set to not trainable.")
+        else:
+            # self.print_rank0("No vision tower found.")
+            if self.rank == 0:
+                print("No vision tower found.")
+#############################################################################################################
         torch.distributed.barrier()
 
         if self.rank == 0:

@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --no-requeue
 #SBATCH --partition=Gveval-T
-#SBATCH --quotatype=spot
+#SBATCH --quotatype=reserved
 #SBATCH --time=1200
 
 set -xe

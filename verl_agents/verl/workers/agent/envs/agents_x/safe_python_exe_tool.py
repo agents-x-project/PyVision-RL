@@ -79,7 +79,8 @@ plt.close()
 
 class MultiModalPythonTool(ToolBase):
     # name = "multi_modal_python_tool"
-    name = "visual_toolbox_v2"
+    # name = "visual_toolbox_v2"
+    name = "pyvision_gym"
     description = "Tool for executing Python code with multimodal capabilities"
     
     def __init__(self, _name=None, _desc=None, _params=None, **kwargs):
