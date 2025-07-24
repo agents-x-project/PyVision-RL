@@ -14,7 +14,7 @@ data:
   filter_overlong_prompts: False # for large-scale dataset, filtering overlong prompts could be timeconsuming. You cat set the filter_overlong_prompts_workers to use multiprocessing to speed up.
   filter_overlong_prompts_workers: 1
   truncation: error
-  image_key: images
+  image_key: image
   video_key: videos
   custom_cls:
       path: null
