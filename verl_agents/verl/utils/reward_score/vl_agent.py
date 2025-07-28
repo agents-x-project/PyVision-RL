@@ -274,7 +274,9 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     # reward 1
     # return 0.8 * acc_reward + 0.2 * format_reward + 0.4 * tool_reward_base
     # reward 2
-    return 0.8 * acc_reward + 0.2 * format_reward + 1.2 * tool_reward
+    # return 0.8 * acc_reward + 0.2 * format_reward + 1.2 * tool_reward
+    # pyvision reward
+    return 1.0 * acc_reward + 1.0 * tool_reward
 
     # reward 2 
     # return 1.0 * acc_reward + 0.2 * format_reward + 1.0 * tool_reward + 0.2 * tool_reward_base

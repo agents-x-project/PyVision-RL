@@ -61,6 +61,42 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
     sequence_score = batch.batch["token_level_scores"].sum(-1)
     sequence_reward = batch.batch["token_level_rewards"].sum(-1)
 
+    num_correct = 0
+    for sc in sequence_score:
+        if sc == 2.0:
+            num_correct += 1
+    acc_batch = num_correct / len(sequence_score)
+
+    uid_list = batch.non_tensor_batch["uid"]
+
+    # 假设 uid 和 reward 已定义
+    # uid: [512,]，reward: [512,]
+
+    # 步骤1：计算唯一 uid 的数量（即 64）
+    unique_uids = np.unique(uid_list)
+    unique_uid_count = len(unique_uids)
+
+    # 步骤2：计算每个 uid 重复的次数（即 8）
+    repeat_count = len(uid_list) // unique_uid_count
+
+    # 步骤3：按 uid 分组并 reshape
+    _, inverse_indices = np.unique(uid_list, return_inverse=True)
+    reward_reformed = np.empty((unique_uid_count, repeat_count))
+
+    acc_per_group_list = []
+
+    for i in range(unique_uid_count):
+        mask = (inverse_indices == i)
+        sequence_score_one_group = sequence_score[mask]
+        reward_reformed[i] = sequence_score_one_group
+        correct_num_one_group = [1 if _ > 0 else 0 for _ in sequence_score_one_group]
+        acc_one_group = correct_num_one_group / len(sequence_score_one_group)
+        acc_per_group_list.append(acc_one_group)
+
+    per_group_one_ratio = sum([1 if _ == 1.0 else 0 for _ in acc_per_group_list]) / len(acc_per_group_list)
+    per_group_zero_ratio = sum([1 if _ == 0.0 else 0 for _ in acc_per_group_list]) / len(acc_per_group_list)
+
+
     advantages = batch.batch["advantages"]
     returns = batch.batch["returns"]
 
@@ -87,6 +123,11 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
 
     metrics = {
         # score
+        "critic/acc/batch": acc_batch,
+        "critic/acc/per_group_max": max(acc_per_group_list),
+        "critic/acc/per_group_min": min(acc_per_group_list),
+        "critic/acc/per_group_one_ratio": per_group_one_ratio,
+        "critic/acc/per_group_zero_ratio": per_group_zero_ratio,
         "critic/score/mean": torch.mean(sequence_score).detach().item(),
         "critic/score/max": torch.max(sequence_score).detach().item(),
         "critic/score/min": torch.min(sequence_score).detach().item(),

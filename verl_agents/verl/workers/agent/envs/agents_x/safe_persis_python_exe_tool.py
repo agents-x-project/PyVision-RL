@@ -308,7 +308,7 @@ class MultiModalPythonTool(ToolBase):
                     else:
                         obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
                     
-                    return obs, 0.1, False, {"status": "success"}
+                    return obs, 0.0, False, {"status": "success"}
                 else:
                     error_msg = f"Execution error: {result.get('error', 'Unknown error')}"
                     obs = f"\n<|im_start|>user\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
@@ -325,7 +325,7 @@ class MultiModalPythonTool(ToolBase):
                     'images': runtime.captured_figures
                 }
                 obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{result['text']}</interpreter><|im_end|>\n<|im_start|>assistant\n"
-                return obs, 0.1, False, {"status": "success"}
+                return obs, 0.0, False, {"status": "success"}
                 
         except Exception as e:
             error_msg = f"Tool error: {str(e)}"
