@@ -7,6 +7,7 @@
 #SBATCH --partition=Gveval-T
 #SBATCH --quotatype=reserved
 #SBATCH --time=1200
+#SBATCH --output=/mnt/petrelfs/zhaoshitian/vis_tool_train/logs/pyvision-rl-%j.log
 
 set -xe
 head_node_ip=10.140.60.38

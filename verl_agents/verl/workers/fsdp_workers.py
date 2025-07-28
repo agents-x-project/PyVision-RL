@@ -240,16 +240,19 @@ class ActorRolloutRefWorker(Worker):
                 actor_module.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
 
 ###########################################################################################################
+        use_orig_params = False
         # if model_config.freeze_vision_tower:
         if hasattr(actor_module, "model") and hasattr(actor_module.model, "visual"):  # transformers >= 4.52.0
             actor_module.model.visual.requires_grad_(False)
-            fsdp_config.use_orig_params = True
+            # fsdp_config.use_orig_params = True
+            use_orig_params = True
             # self.print_rank0("Vision tower is set to not trainable.")
             if self.rank == 0:
                 print("Vision tower is set to not trainable.")
         elif hasattr(actor_module, "visual"):  # transformers < 4.52.0
             actor_module.visual.requires_grad_(False)
-            fsdp_config.use_orig_params = True
+            # fsdp_config.use_orig_params = True
+            use_orig_params = True
             # self.print_rank0("Vision tower is set to not trainable.")
             if self.rank == 0:
                 print("Vision tower is set to not trainable.")
@@ -297,7 +300,7 @@ class ActorRolloutRefWorker(Worker):
             actor_module,
             cpu_offload=cpu_offload,
             param_init_fn=init_fn,
-            use_orig_params=False,
+            use_orig_params=use_orig_params,
             auto_wrap_policy=auto_wrap_policy,
             device_id=torch.cuda.current_device(),
             sharding_strategy=sharding_strategy,  # zero3

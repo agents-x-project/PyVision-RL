@@ -213,8 +213,10 @@ class RLHFDataset(Dataset):
             if self.image_key in row_dict:
                 # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
                 # image = row_dict.get(self.image_key)
-                origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
-                images = [process_image(image) for image in row_dict.pop(self.image_key)]
+                # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
+                # images = [process_image(image) for image in row_dict.pop(self.image_key)]
+                origin_images = [process_raw_image(row_dict.get(self.image_key))]
+                images = [process_image(row_dict.pop(self.image_key))]
                 multi_modal_data["image"] = images
                 origin_multi_modal_data["image"] = origin_images
 
