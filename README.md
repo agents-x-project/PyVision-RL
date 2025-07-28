@@ -67,7 +67,7 @@ bash run_train.sh
 
 #### Model Merge
 ```bash
-
+bash scripts/run_merge.sh
 ```
 
 #### Test
