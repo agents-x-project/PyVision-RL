@@ -7,22 +7,22 @@ export HYDRA_FULL_ERROR=1
 # export WANDB_MODE=offline
 
 PROJECT_NAME="pyvision-rl-v0"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn5_with_ds"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
 
-BASEDIR=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k
+BASEDIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k
 VISUAL_DATASET_TRAIN_0_6_2=${BASEDIR}/data_v0.6.2_reason.parquet
 VISUAL_DATASET_TRAIN_0_1_2=${BASEDIR}/data_0.1.2_visual_toolbox_v2.parquet
 VISUAL_DATASET_TRAIN_0_8=${BASEDIR}/data_v0.8_visual_toolbox_v2.parquet
 VISUAL_DATASET_TEST=${BASEDIR}/seekworld_test.parquet
 EUREKA_DATASET_TRAIN=${BASEDIR}/data_thinklite_reasoning_acc.parquet
 
-PYVISION_DATASET_DEEPEYES_TRAIN_0=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/parquet_files/data_0.1.2_visual_toolbox_v2/train_1.parquet
-PYVISION_DATASET_DEEPEYES_TRAIN_1=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/parquet_files/data_0.1.2_visual_toolbox_v2/train_2.parquet
-PYVISION_DATASET_DEEPEYES_TRAIN_2=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/parquet_files/data_0.1.2_visual_toolbox_v2/train_3.parquet
-PYVISION_DATASET_DEEPEYES_TRAIN_3=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/DeepEyes-Datasets-47k/parquet_files/data_0.1.2_visual_toolbox_v2/train_4.parquet
+PYVISION_DATASET_DEEPEYES_TRAIN_0=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k/parqurt_files_1/data_0.1.2_visual_toolbox_v2/train_1.parquet
+PYVISION_DATASET_DEEPEYES_TRAIN_1=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k/parqurt_files_1/data_0.1.2_visual_toolbox_v2/train_2.parquet
+PYVISION_DATASET_DEEPEYES_TRAIN_2=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k/parqurt_files_1/data_0.1.2_visual_toolbox_v2/train_3.parquet
+PYVISION_DATASET_DEEPEYES_TRAIN_3=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k/parqurt_files_1/data_0.1.2_visual_toolbox_v2/train_4.parquet
 
 PYVISION_DATASET_ZEBRA_COT_TRAIN_0=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/Visual-Search/parquet_files/train_1.parquet
 PYVISION_DATASET_ZEBRA_COT_TRAIN_1=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/Visual-Search/parquet_files/train_2.parquet
@@ -34,13 +34,17 @@ PYVISION_DATASET_VIGORL_TRAIN_1=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/d
 PYVISION_DATASET_VIGORL_TRAIN_2=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/vigorl_datasets/parquet_files/train_3.parquet
 PYVISION_DATASET_VIGORL_TRAIN_3=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/vigorl_datasets/parquet_files/train_4.parquet
 
+enable_filter_groups=True
+filter_groups_metric=seq_reward
+max_num_gen_batches=0
+
 REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/agents_x_data/sft_ckpt/qwen2_5vl-7b-2/full/sft
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
     +vs_debug=True \
-    data.train_files=[${PYVISION_DATASET_DEEPEYES_TRAIN_0}, ${PYVISION_DATASET_DEEPEYES_TRAIN_1}, ${PYVISION_DATASET_DEEPEYES_TRAIN_2}, ${PYVISION_DATASET_DEEPEYES_TRAIN_3}, ${PYVISION_DATASET_ZEBRA_COT_TRAIN_0},${PYVISION_DATASET_ZEBRA_COT_TRAIN_1},${PYVISION_DATASET_ZEBRA_COT_TRAIN_2},${PYVISION_DATASET_ZEBRA_COT_TRAIN_3},${PYVISION_DATASET_VIGORL_TRAIN_0},${PYVISION_DATASET_VIGORL_TRAIN_1},${PYVISION_DATASET_VIGORL_TRAIN_2},${PYVISION_DATASET_VIGORL_TRAIN_3}] \
+    data.train_files=[${PYVISION_DATASET_DEEPEYES_TRAIN_0},${PYVISION_DATASET_DEEPEYES_TRAIN_1},${PYVISION_DATASET_DEEPEYES_TRAIN_2},${PYVISION_DATASET_DEEPEYES_TRAIN_3},${PYVISION_DATASET_ZEBRA_COT_TRAIN_0},${PYVISION_DATASET_ZEBRA_COT_TRAIN_1},${PYVISION_DATASET_ZEBRA_COT_TRAIN_2},${PYVISION_DATASET_ZEBRA_COT_TRAIN_3},${PYVISION_DATASET_VIGORL_TRAIN_0},${PYVISION_DATASET_VIGORL_TRAIN_1},${PYVISION_DATASET_VIGORL_TRAIN_2},${PYVISION_DATASET_VIGORL_TRAIN_3}] \
     data.val_files=[${EUREKA_DATASET_TRAIN}] \
-    data.train_batch_size=256 \
+    data.train_batch_size=64 \
     data.max_prompt_length=32000 \
     data.max_response_length=20480 \
     data.return_raw_chat=True \
@@ -58,6 +62,9 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.entropy_coeff=0.0 \
     actor_rollout_ref.actor.checkpoint.contents=['model','hf_model','optimizer','extra'] \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=1 \
+    algorithm.filter_groups.enable=${enable_filter_groups} \
+    algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
+    algorithm.filter_groups.metric=${filter_groups_metric} \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
