@@ -1174,7 +1174,8 @@ class RayPPOTrainer:
                             ref_log_prob = self.ref_policy_wg.compute_ref_log_prob(batch)
                             batch = batch.union(ref_log_prob)
 
-                    with marked_timer("adv", timing_raw, "brown"):
+                    # with _timer("adv", timing_raw, "brown"):
+                    with _timer("adv", timing_raw):
                         # compute advantages, executed on the driver process
                         norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)
                         batch = compute_advantage(
