@@ -90,7 +90,7 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
         sequence_score_one_group = sequence_score[mask]
         reward_reformed[i] = sequence_score_one_group
         correct_num_one_group = [1 if _ > 0 else 0 for _ in sequence_score_one_group]
-        acc_one_group = correct_num_one_group / len(sequence_score_one_group)
+        acc_one_group = sum(correct_num_one_group) / len(sequence_score_one_group)
         acc_per_group_list.append(acc_one_group)
 
     per_group_one_ratio = sum([1 if _ == 1.0 else 0 for _ in acc_per_group_list]) / len(acc_per_group_list)
