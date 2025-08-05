@@ -63,7 +63,7 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
 
     num_correct = 0
     for sc in sequence_score:
-        if sc == 2.0:
+        if sc == 1.0:
             num_correct += 1
     acc_batch = num_correct / len(sequence_score)
 
@@ -215,11 +215,21 @@ def compute_agent_metrics(batch: DataProto):
     if 'tool_cnt' not in batch.batch.keys():
         return {}
 
-    tool_cnt_tensor = batch.batch.pop('tool_cnt').detach().cpu()
+    # tool_cnt_tensor = batch.batch.pop('tool_cnt').detach().cpu()
+    tool_cnt_tensor = batch.batch['tool_cnt'].detach().cpu()
+
+    # 计算 0 的占比
+    zero_ratio = (tool_cnt_tensor == 0).float().mean().item()
+
+    # 计算 4 的占比
+    max_ratio = (tool_cnt_tensor == torch.max(tool_cnt_tensor).item()).float().mean().item()
+
     return {
         "agent/tool_call_mean": torch.mean(tool_cnt_tensor).item(),
         "agent/tool_call_max": torch.max(tool_cnt_tensor).item(),
         "agent/tool_call_min": torch.min(tool_cnt_tensor).item(),
+        "agent/tool_call_zero_ratio": zero_ratio,
+        "agent/tool_call_max_retio": max_ratio,
     }
 
 

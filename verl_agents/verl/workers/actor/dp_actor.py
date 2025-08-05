@@ -27,13 +27,14 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 
 import verl.utils.torch_functional as verl_F
 from verl import DataProto
-from verl.trainer.ppo.core_algos import agg_loss, compute_policy_loss, kl_penalty
+from verl.trainer.ppo.core_algos import agg_loss, compute_policy_loss, kl_penalty, compute_policy_loss_with_filter_mask
 from verl.utils.debug import GPUMemoryLogger
 from verl.utils.py_functional import append_to_dict
 from verl.utils.seqlen_balancing import get_reverse_idx, rearrange_micro_batches
 from verl.utils.torch_functional import logprobs_from_logits
 from verl.utils.ulysses import gather_outpus_and_unpad, ulysses_pad_and_slice_inputs
 from verl.workers.actor import BasePPOActor
+from verl.trainer.ppo.filter_fn_utils import max_interaction_budget_filter_fn
 
 __all__ = ["DataParallelPPOActor"]
 
@@ -269,7 +270,7 @@ class DataParallelPPOActor(BasePPOActor):
 
         temperature = data.meta_info["temperature"]  # temperature must be in the data.meta_info to avoid slient error
 
-        select_keys = ["responses", "input_ids", "attention_mask", "position_ids", "old_log_probs", "advantages", "action_mask"]
+        select_keys = ["responses", "input_ids", "attention_mask", "position_ids", "old_log_probs", "advantages", "action_mask", "tool_cnt"]
         if self.config.use_kl_loss:
             select_keys.append("ref_log_prob")
         batch = data.select(batch_keys=select_keys, strict=False).batch
@@ -340,17 +341,48 @@ class DataParallelPPOActor(BasePPOActor):
                         micro_batch=data, temperature=temperature, calculate_entropy=calculate_entropy
                     )
 
-                    pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
+########################################################################################################################
+                    # print(f"shape of response mask: {response_mask.shape}")
+                    # print(f"len of data: {len(data)}")
+                    # print(f"keys of data: {data.keys()}")
+                    tool_cnt = data['tool_cnt'].detach().cpu().tolist()[0][0]
+                    tool_cnt = int(tool_cnt)
+                    # print(f"tool_cnt: {tool_cnt}")
+                    # print(f"shape of response mask: {response_mask.shape}")
+                    # print(f"len of data: {len(data)}")
+                    # print(f"keys of data: {data.keys()}")
+                    if tool_cnt == 4:
+                        filter_mask = torch.zeros_like(response_mask)
+                        # print("tool_cnt is ")
+                    else:
+                        filter_mask = response_mask
+
+                    pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss_with_filter_mask(
                         old_log_prob=old_log_prob,
                         log_prob=log_prob,
                         advantages=advantages,
                         response_mask=response_mask,
+                        filter_mask=filter_mask,
                         cliprange=clip_ratio,
                         cliprange_low=clip_ratio_low,
                         cliprange_high=clip_ratio_high,
                         clip_ratio_c=clip_ratio_c,
                         loss_agg_mode=loss_agg_mode,
                     )
+
+########################################################################################################################
+
+                    # pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
+                    #     old_log_prob=old_log_prob,
+                    #     log_prob=log_prob,
+                    #     advantages=advantages,
+                    #     response_mask=response_mask,
+                    #     cliprange=clip_ratio,
+                    #     cliprange_low=clip_ratio_low,
+                    #     cliprange_high=clip_ratio_high,
+                    #     clip_ratio_c=clip_ratio_c,
+                    #     loss_agg_mode=loss_agg_mode,
+                    # )
 
                     if entropy_coeff != 0:
                         entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)

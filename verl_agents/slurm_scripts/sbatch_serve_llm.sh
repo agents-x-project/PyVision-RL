@@ -4,9 +4,11 @@
 #SBATCH --cpus-per-task=16
 #SBATCH --gpus-per-task=4
 #SBATCH --ntasks-per-node=1
-#SBATCH --no-requeue
-#SBATCH --partition=eaigc1_t
+#SBATCH --requeue
+#SBATCH --partition=Gveval-T
 #SBATCH --quotatype=reserved
+
+export CUDA_VISIBLE_DEVICES=4,5,6,7
 
 vllm serve /mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/Qwen2.5-72B-Instruct \
     --port 18901 \

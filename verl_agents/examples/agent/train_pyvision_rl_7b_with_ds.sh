@@ -1,13 +1,14 @@
 set -x
 
-export LLM_AS_A_JUDGE_BASE="http://10.140.60.133:18901/v1" # 10-140-1-174
-export no_proxy='10.140.60.133:18901'
+export LLM_AS_A_JUDGE_BASE="http://10.140.66.34:18901/v1" # 10-140-1-174
+export no_proxy='10.140.66.34:18901'
+export NO_PROXY_IP='10.140.66.34:18901'
 # export no_proxy='10.140.60.38:8265'
 export HYDRA_FULL_ERROR=1
 # export WANDB_MODE=offline
 
 PROJECT_NAME="pyvision-rl-v0"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_with_filtering"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -37,6 +38,8 @@ PYVISION_DATASET_VIGORL_TRAIN_3=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/d
 enable_filter_groups=True
 filter_groups_metric=seq_reward
 max_num_gen_batches=0
+
+# [${PYVISION_DATASET_DEEPEYES_TRAIN_0},${PYVISION_DATASET_DEEPEYES_TRAIN_1},${PYVISION_DATASET_DEEPEYES_TRAIN_2},${PYVISION_DATASET_DEEPEYES_TRAIN_3},${PYVISION_DATASET_ZEBRA_COT_TRAIN_0},${PYVISION_DATASET_ZEBRA_COT_TRAIN_1},${PYVISION_DATASET_ZEBRA_COT_TRAIN_2},${PYVISION_DATASET_ZEBRA_COT_TRAIN_3},${PYVISION_DATASET_VIGORL_TRAIN_0},${PYVISION_DATASET_VIGORL_TRAIN_1},${PYVISION_DATASET_VIGORL_TRAIN_2},${PYVISION_DATASET_VIGORL_TRAIN_3}]
 
 REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/agents_x_data/sft_ckpt/qwen2_5vl-7b-2/full/sft
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \

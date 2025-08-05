@@ -7,14 +7,15 @@ import os
 from math_verify import parse, verify
 
 openai_api_key = "EMPTY"
-os.environ['LLM_AS_A_JUDGE_BASE']='http://10.140.60.144:18901/v1'
+os.environ['LLM_AS_A_JUDGE_BASE']='http://10.140.66.34:18901/v1'
 # openai_api_key = os.environ.get("LLM_AS_A_JUDGE_API_KEY")
 openai_api_base_list = [
     # "http://172.30.52.123:8000/v1",
     # "http://10.39.3.123:18901/v1",
     os.environ.get("LLM_AS_A_JUDGE_BASE"),
 ]
-os.environ['no_proxy']='10.140.60.144:18901'
+os.environ['NO_PROXY_IP'] = '10.140.66.34:18901'
+os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
 
 client_list = []
 for api_base in openai_api_base_list:
@@ -193,7 +194,7 @@ def extract_answer(text):
 
 
 def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float:
-    os.environ['no_proxy']='10.140.60.133:18901'
+    os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
     is_format_error = False
     # predict_str = "<think>" + predict_str
     count_think_1 = predict_str.count("<think>")
@@ -230,7 +231,7 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     model_name = model_name_list[client_idx]
 
     # print(f"############################### begin to utilize the client.")
-    os.environ['no_proxy']='10.140.60.133:18901'
+    os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
     # print(f"############################### model name: {model_name}")
     # print(f"############################### full prompt: {full_prompt}")
     chat_response = client.chat.completions.create(
@@ -290,7 +291,7 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
 
 
 def compute_common_reasoning(predict_str: str, ground_truth: str, extra_info=None) -> float:
-    os.environ['no_proxy']='10.140.60.144:18901'
+    os.environ['no_proxy']=os.environ.get("NO_PROXY_IP")
     is_format_error = False
     # predict_str = "<think>" + predict_str
     count_think_1 = predict_str.count("<think>")
