@@ -8,7 +8,7 @@ export HYDRA_FULL_ERROR=1
 # export WANDB_MODE=offline
 
 PROJECT_NAME="pyvision-rl-v0"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_with_filtering"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_with_filtering_with_clip_higher_with_seq-mean-token-mean-fixed_loss_agg_mode"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues

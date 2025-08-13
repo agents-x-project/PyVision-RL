@@ -457,6 +457,44 @@ def compute_policy_loss(
 
     return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
 
+#################################################################################################################
+def agg_loss_with_compact_filtering(loss_mat: torch.Tensor, response_mask: torch.Tensor, loss_mask: torch.Tensor, loss_agg_mode: str):
+    """
+    Aggregate the loss matrix into a scalar.
+    Args:
+        loss_mat: `(torch.Tensor)`
+            shape: (bs, response_length)
+        loss_mask: `(torch.Tensor)`
+            shape: (bs, response_length)
+        loss_agg_mode: (str) choices: "token-mean" /
+                                      "seq-mean-token-sum" /
+                                      "seq-mean-token-mean" /
+                                      "seq-mean-token-sum-norm" /
+            "token-mean" is the default behavior
+    Returns:
+        loss: `a scalar torch.Tensor`
+            aggregated loss
+    """
+    if loss_agg_mode == "token-mean":
+        loss = verl_F.masked_mean(loss_mat, loss_mask)
+    elif loss_agg_mode == "seq-mean-token-sum":
+        seq_losses = torch.sum(loss_mat * loss_mask, dim=-1)  # token-sum
+        loss = torch.mean(seq_losses)  # seq-mean
+    elif loss_agg_mode == "seq-mean-token-mean":
+        seq_losses = torch.sum(loss_mat * loss_mask, dim=-1) / torch.sum(response_mask, dim=-1)  # token-mean
+        loss = torch.mean(seq_losses)  # seq-mean
+    elif loss_agg_mode == "seq-mean-token-sum-norm":
+        seq_losses = torch.sum(loss_mat * loss_mask, dim=-1)
+        loss = torch.sum(seq_losses) / loss_mask.shape[-1]  # The divisor
+        # (loss_mask.shape[-1]) should ideally be constant
+        # throughout training to well-replicate the DrGRPO paper.
+        # TODO: Perhaps add user-defined normalizer argument to
+        # agg_loss to ensure divisor stays constant throughout.
+    else:
+        raise ValueError(f"Invalid loss_agg_mode: {loss_agg_mode}")
+
+    return loss
+
 def compute_policy_loss_with_filter_mask(
     old_log_prob,
     log_prob,
@@ -534,9 +572,11 @@ def compute_policy_loss_with_filter_mask(
     )
 
     pg_losses = torch.where(advantages < 0, clip_pg_losses2, clip_pg_losses1)
-    pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=loss_mask, loss_agg_mode=loss_agg_mode)
+    pg_loss = agg_loss_with_compact_filtering(loss_mat=pg_losses, response_mask=response_mask, loss_mask=loss_mask, loss_agg_mode=loss_agg_mode)
 
     return pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower
+
+##################################################################################################################
 
 
 def compute_entropy_loss(logits, response_mask):
