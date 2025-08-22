@@ -62,7 +62,7 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         from . import agent
         res = agent.compute_score_eval(solution_str, ground_truth)
 
-    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes']:
+    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-2.0-standard', 'wemath-2.0-pro']:
         from verl.utils.reward_score import vl_agent
         # print(f"################################## import the vl_agent successfully.")
         # from . import vl_agent

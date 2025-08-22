@@ -118,6 +118,30 @@ class RLHFDataset(Dataset):
         for i, parquet_file in enumerate(data_files):
             self.data_files[i] = copy_to_local(src=parquet_file, cache_dir=self.cache_dir)
 
+    # def _read_files_and_tokenize(self):
+    #     dataframes = []
+    #     for parquet_file in self.data_files:
+    #         # read parquet files and cache
+    #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
+    #         dataframes.append(dataframe)
+    #     self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
+
+    #     print(f"dataset len: {len(self.dataframe)}")
+
+    #     # filter out too long prompts
+    #     if self.filter_overlong_prompts:
+    #         tokenizer = self.tokenizer
+    #         prompt_key = self.prompt_key
+    #         self.dataframe = self.dataframe.filter(
+    #             lambda doc: len(tokenizer.apply_chat_template(doc[prompt_key], add_generation_prompt=True))
+    #             <= self.max_prompt_length,
+    #             num_proc=self.num_workers,
+    #             desc=f"Filtering prompts longer than {self.max_prompt_length} tokens",
+    #         )
+
+    #         print(f"filter dataset len: {len(self.dataframe)}")
+
+######################################################################################################################
     def _read_files_and_tokenize(self):
         dataframes = []
         for parquet_file in self.data_files:
@@ -128,18 +152,48 @@ class RLHFDataset(Dataset):
 
         print(f"dataset len: {len(self.dataframe)}")
 
+        self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+
+    def maybe_filter_out_long_prompts(self, dataframe: datasets.Dataset = None):
         # filter out too long prompts
         if self.filter_overlong_prompts:
             tokenizer = self.tokenizer
+            processor = self.processor
             prompt_key = self.prompt_key
-            self.dataframe = self.dataframe.filter(
-                lambda doc: len(tokenizer.apply_chat_template(doc[prompt_key], add_generation_prompt=True))
-                <= self.max_prompt_length,
+            image_key = self.image_key
+            video_key = self.video_key
+
+            if processor is not None:
+                from verl.utils.dataset.vision_utils import process_image, process_video
+
+                def doc2len(doc) -> int:
+                    messages = self._build_messages_pyvision(doc)
+                    raw_prompt = self.processor.apply_chat_template(
+                        messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+                    )
+                    images = [process_image(image) for image in doc[image_key]] if image_key in doc else None
+                    videos = [process_video(video) for video in doc[video_key]] if video_key in doc else None
+
+                    return len(processor(text=[raw_prompt], images=images, videos=videos)["input_ids"][0])
+
+            else:
+
+                def doc2len(doc) -> int:
+                    return len(
+                        tokenizer.apply_chat_template(
+                            doc[prompt_key], add_generation_prompt=True, **self.apply_chat_template_kwargs
+                        )
+                    )
+
+            dataframe = dataframe.filter(
+                lambda doc: doc2len(doc) <= self.max_prompt_length,
                 num_proc=self.num_workers,
                 desc=f"Filtering prompts longer than {self.max_prompt_length} tokens",
             )
 
-            print(f"filter dataset len: {len(self.dataframe)}")
+            print(f"filter dataset len: {len(dataframe)}")
+        return dataframe
+###########################################################################################################################
 
     def resume_dataset_state(self):
         self.serialize_dataset = not hasattr(self, "original_data_files")

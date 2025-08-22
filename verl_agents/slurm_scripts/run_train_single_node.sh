@@ -11,4 +11,4 @@
 export WORLD_SIZE=2
 
 # srun -p eaigc1_t  --gres=gpu:8 --cpus-per-task=1 -N2 --ntasks-per-node=8 --quotatype=reserved --job-name=pyvision \
-bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/examples/agent/train_pyvision_rl_7b_with_ds.sh
+bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/examples/agent/train_pyvision_rl_7b_v1.sh

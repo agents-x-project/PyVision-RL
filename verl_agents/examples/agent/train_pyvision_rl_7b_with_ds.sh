@@ -8,7 +8,7 @@ export HYDRA_FULL_ERROR=1
 # export WANDB_MODE=offline
 
 PROJECT_NAME="pyvision-rl-v0"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_with_filtering_with_clip_higher_with_seq-mean-token-mean-fixed_loss_agg_mode"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn10_with_ds_with_filtering_with_clip_higher_with_seq-mean-token-mean-fixed_loss_agg_mode"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -84,7 +84,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.activate_agent=True \
     actor_rollout_ref.rollout.agent.tool_name_key=env_name \
     actor_rollout_ref.rollout.agent.single_response_max_tokens=10240 \
-    actor_rollout_ref.rollout.agent.max_turns=5 \
+    actor_rollout_ref.rollout.agent.max_turns=11 \
     actor_rollout_ref.rollout.agent.concurrent_workers=1 \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
     +trainer.rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/rollouts/${PROJECT_NAME}/${EXPERIMENT_NAME} \

@@ -17,7 +17,7 @@ RAYLOG="/tmp/ma-ray"
 echo "RAYLOG $RAYLOG"
 
 
-head_node_ip=10.140.66.34
+head_node_ip=10.140.60.38
 
 port=6379
 ip_head=$head_node_ip:$port

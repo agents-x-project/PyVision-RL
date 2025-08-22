@@ -10,7 +10,7 @@
 #SBATCH --output=/mnt/petrelfs/zhaoshitian/vis_tool_train/logs/pyvision-rl-%j.log
 
 set -xe
-head_node_ip=10.140.66.34
+head_node_ip=10.140.60.38
 
 
-RAY_ADDRESS='http://10.140.66.34:8265' ray job submit --working-dir . -- bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/slurm_scripts/run_train_single_node.sh
+RAY_ADDRESS='http://10.140.60.38:8265' ray job submit --working-dir . -- bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/slurm_scripts/run_train_single_node.sh
