@@ -24,6 +24,9 @@ import torch
 from omegaconf import DictConfig, ListConfig
 from torch.utils.data import Dataset
 from transformers import PreTrainedTokenizer, ProcessorMixin
+import hashlib
+import torch
+from pathlib import Path
 
 import verl.utils.torch_functional as verl_F
 from verl.utils.model import compute_position_id_with_mask
@@ -92,7 +95,7 @@ class RLHFDataset(Dataset):
         self.processor = processor
         self.config = config
 
-        self.cache_dir = os.path.expanduser(config.get("cache_dir", "~/.cache/verl/rlhf"))
+        self.cache_dir = os.path.expanduser(config.get("cache_dir", "/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_data/cache"))
         self.prompt_key = config.get("prompt_key", "prompt")
         self.image_key = config.get("image_key", "images")
         self.video_key = config.get("video_key", "videos")
@@ -142,17 +145,47 @@ class RLHFDataset(Dataset):
     #         print(f"filter dataset len: {len(self.dataframe)}")
 
 ######################################################################################################################
+    # def _read_files_and_tokenize(self):
+    #     dataframes = []
+    #     for parquet_file in self.data_files:
+    #         # read parquet files and cache
+    #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
+    #         dataframes.append(dataframe)
+    #     self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
+
+    #     print(f"dataset len: {len(self.dataframe)}")
+
+    #     self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+
     def _read_files_and_tokenize(self):
-        dataframes = []
-        for parquet_file in self.data_files:
-            # read parquet files and cache
-            dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-            dataframes.append(dataframe)
-        self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
+        # Generate a unique cache file name based on data_files and config
+        data_files_str = "".join(sorted(self.data_files))
+        config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
+        hash_input = data_files_str + config_str
+        hash_name = hashlib.md5(hash_input.encode()).hexdigest()
+        cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
 
-        print(f"dataset len: {len(self.dataframe)}")
+        os.makedirs(self.cache_dir, exist_ok=True)
 
-        self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+        if os.path.exists(cache_file):
+            print(f"Loading dataset from cache: {cache_file}")
+            self.dataframe = torch.load(cache_file, weights_only=False)
+        else:
+            dataframes = []
+            for parquet_file in self.data_files:
+                dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
+                dataframes.append(dataframe)
+            self.dataframe = datasets.concatenate_datasets(dataframes)
+
+            print(f"dataset len: {len(self.dataframe)}")
+
+            self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+
+            # Save processed dataset to cache
+            print(f"Saving dataset to cache: {cache_file}")
+            torch.save(self.dataframe, cache_file)
+
+        print(f"Final dataset len: {len(self.dataframe)}")
 
     def maybe_filter_out_long_prompts(self, dataframe: datasets.Dataset = None):
         # filter out too long prompts
@@ -169,10 +202,13 @@ class RLHFDataset(Dataset):
                 def doc2len(doc) -> int:
                     messages = self._build_messages_pyvision(doc)
                     raw_prompt = self.processor.apply_chat_template(
-                        messages, add_generation_prompt=True, tokenize=False, **self.apply_chat_template_kwargs
+                        messages, add_generation_prompt=True, tokenize=False
                     )
-                    images = [process_image(image) for image in doc[image_key]] if image_key in doc else None
-                    videos = [process_video(video) for video in doc[video_key]] if video_key in doc else None
+                    # images = [process_image(image) for image in doc[image_key]] if image_key in doc else None
+                    # videos = [process_video(video) for video in doc[video_key]] if video_key in doc else None
+
+                    images = [process_image(image) for image in [doc[image_key]]] if image_key in doc else None
+                    videos = [process_video(video) for video in [doc[video_key]]] if video_key in doc else None
 
                     return len(processor(text=[raw_prompt], images=images, videos=videos)["input_ids"][0])
 
@@ -181,7 +217,7 @@ class RLHFDataset(Dataset):
                 def doc2len(doc) -> int:
                     return len(
                         tokenizer.apply_chat_template(
-                            doc[prompt_key], add_generation_prompt=True, **self.apply_chat_template_kwargs
+                            doc[prompt_key], add_generation_prompt=True
                         )
                     )
 

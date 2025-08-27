@@ -252,7 +252,7 @@ class MultiModalPythonTool(ToolBase):
         code = self.extract_code(action_string)
         if not code:
             error_msg = "No Python code found."
-            obs = f"\n<|im_start|>user\n<interpreter>Error: {error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+            obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
             return obs, 0.0, False, {"error": error_msg}
         
         try:
@@ -311,7 +311,7 @@ class MultiModalPythonTool(ToolBase):
                     return obs, 0.0, False, {"status": "success"}
                 else:
                     error_msg = f"Execution error: {result.get('error', 'Unknown error')}"
-                    obs = f"\n<|im_start|>user\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+                    obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
                     return obs, 0.0, False, {"error": error_msg}
             else:
                 # 非隔离模式（调试用）
@@ -329,7 +329,7 @@ class MultiModalPythonTool(ToolBase):
                 
         except Exception as e:
             error_msg = f"Tool error: {str(e)}"
-            obs = f"\n<|im_start|>user\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+            obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
             return obs, 0.0, False, {"error": str(e)}
     
     def reset(self, raw_prompt, multi_modal_data, origin_multi_modal_data, **kwargs):

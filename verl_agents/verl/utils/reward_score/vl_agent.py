@@ -175,18 +175,36 @@ Judgement:"""
     return full_prompt
 
 
+# def extract_answer(text):
+#     """
+#     从给定的文本中提取<answer></answer>标签内部的内容。
+    
+#     参数:
+#         text (str): 包含<answer>标签的文本
+        
+#     返回:
+#         str or None: 标签内部的内容，如果未找到则返回None。
+#     """
+#     # 使用非贪婪模式匹配<answer>和</answer>之间的内容
+#     pattern = r'<answer>(.*?)</answer>'
+#     match = re.search(pattern, text, re.DOTALL)
+#     if match:
+#         return match.group(1).strip()
+#     return None
+
 def extract_answer(text):
     """
-    从给定的文本中提取<answer></answer>标签内部的内容。
+    从给定的文本中提取<answer>\boxed{answer content}</answer>标签内部的内容。
     
     参数:
         text (str): 包含<answer>标签的文本
         
     返回:
-        str or None: 标签内部的内容，如果未找到则返回None。
+        str or None: 标签内部\boxed{}中的内容，如果未找到则返回None。
     """
-    # 使用非贪婪模式匹配<answer>和</answer>之间的内容
-    pattern = r'<answer>(.*?)</answer>'
+    # 匹配 <answer>\boxed{answer content}</answer> 格式
+    # 使用非贪婪模式匹配\boxed{和}之间的内容
+    pattern = r'<answer>\n\\boxed\{(.*?)\}\n</answer>'
     match = re.search(pattern, text, re.DOTALL)
     if match:
         return match.group(1).strip()
@@ -213,8 +231,13 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     if count_answer_1 != count_answer_2:
         is_format_error = True
 
-    answer_text = predict_str.split("<answer>")[-1].split("</answer>")[0].strip()
+    # answer_text = predict_str.split("<answer>")[-1].split("</answer>")[0].strip()
+    answer_text = extract_answer(predict_str)
 
+    if answer_text is None:
+        return 0.0
+    elif "<interpreter>" in answer_text or "<answer>" in answer_text or "\\boxed" in answer_text:
+        return 0.0
     # pattern = re.compile(r'<\|im_start\|>assistant(.*?)$', re.DOTALL)  # 匹配最后一个 target 后的所有内容
     # match = pattern.search(predict_str)
     # if match:
