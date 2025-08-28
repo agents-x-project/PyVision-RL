@@ -251,8 +251,8 @@ class MultiModalPythonTool(ToolBase):
         
         code = self.extract_code(action_string)
         if not code:
-            error_msg = "No Python code found."
-            obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+            error_msg = "No Python code or final answer found. There is something wrong with the format."
+            obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
             return obs, 0.0, False, {"error": error_msg}
         
         try:
@@ -285,12 +285,19 @@ class MultiModalPythonTool(ToolBase):
                         
                         # 更新图像计数
                         self._figures_count = exec_result.get('total_figures', self._figures_count)
-                        
-                        content_prefix = [
-                            {"type": "text", "text": "<interpreter>"},
-                            {"type": "text", "text": f"Text Result:\n{obs_content}\n"},
-                            {"type": "text", "text": "Image Result:\n"},
-                        ]
+
+                        if obs_content is None:
+                            content_prefix = [
+                                {"type": "text", "text": "<interpreter>"},
+                                {"type": "text", "text": "Image Result:\n"},
+                            ]
+                        else:
+                            content_prefix = [
+                                {"type": "text", "text": "<interpreter>"},
+                                {"type": "text", "text": f"Text Result:\n{obs_content}\n"},
+                                {"type": "text", "text": "Image Result:\n"},
+                            ]
+
                         content_suffix = [
                             {"type": "text", "text": "</interpreter>\n"}
                         ]
@@ -306,13 +313,13 @@ class MultiModalPythonTool(ToolBase):
                             "multi_modal_data": {"image": [img for img in images if img]}
                         }
                     else:
-                        obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+                        obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
                     
-                    return obs, 0.0, False, {"status": "success"}
+                    return obs, 0.1, False, {"status": "success"}
                 else:
                     error_msg = f"Execution error: {result.get('error', 'Unknown error')}"
-                    obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
-                    return obs, 0.0, False, {"error": error_msg}
+                    obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+                    return obs, 0.1, False, {"error": error_msg}
             else:
                 # 非隔离模式（调试用）
                 runtime = SafeImageRuntime(messages)
@@ -325,7 +332,7 @@ class MultiModalPythonTool(ToolBase):
                     'images': runtime.captured_figures
                 }
                 obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{result['text']}</interpreter><|im_end|>\n<|im_start|>assistant\n"
-                return obs, 0.0, False, {"status": "success"}
+                return obs, 0.1, False, {"status": "success"}
                 
         except Exception as e:
             error_msg = f"Tool error: {str(e)}"

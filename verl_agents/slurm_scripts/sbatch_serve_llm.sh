@@ -8,7 +8,7 @@
 #SBATCH --partition=Gveval-T
 #SBATCH --quotatype=reserved
 
-export CUDA_VISIBLE_DEVICES=4,5,6,7
+# export CUDA_VISIBLE_DEVICES=4,5,6,7
 
 vllm serve /mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/Qwen2.5-72B-Instruct \
     --port 18901 \

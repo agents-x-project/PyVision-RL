@@ -211,7 +211,7 @@ def extract_answer(text):
     return None
 
 
-def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float:
+def compute_score(predict_str: str, ground_truth: str, extra_info=None):
     os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
     is_format_error = False
     # predict_str = "<think>" + predict_str
@@ -235,9 +235,15 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     answer_text = extract_answer(predict_str)
 
     if answer_text is None:
-        return 0.0
+        reward = {}
+        reward['score'] = 0.0
+        reward['is_answer_right'] = False
+        return reward
     elif "<interpreter>" in answer_text or "<answer>" in answer_text or "\\boxed" in answer_text:
-        return 0.0
+        reward = {}
+        reward['score'] = 0.0
+        reward['is_answer_right'] = False
+        return reward
     # pattern = re.compile(r'<\|im_start\|>assistant(.*?)$', re.DOTALL)  # 匹配最后一个 target 后的所有内容
     # match = pattern.search(predict_str)
     # if match:
@@ -269,10 +275,12 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     response = chat_response.choices[0].message.content.strip()
     # print(f"##################################### response: {response}")
     # print(response)
+    is_answer_right = False
     if 'Judgement:' in response:
         response = response.split('Judgement:')[-1].strip()
         if '1' in response:
             acc_reward = 1.0
+            is_answer_right = True
         elif '0' in response:
             acc_reward = 0.0
         else:
@@ -281,6 +289,7 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     else:
         if response == '1':
             acc_reward = 1.0
+            is_answer_right = True
         elif response == '0':
             acc_reward = 0.0
         else:
@@ -300,7 +309,11 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None) -> float
     # reward 2
     # return 0.8 * acc_reward + 0.2 * format_reward + 1.2 * tool_reward
     # pyvision reward
-    return 1.0 * acc_reward
+    reward = {}
+    reward['score'] = 1.0 * acc_reward
+    reward['is_answer_right'] = is_answer_right
+
+    return reward
 
     # reward 2 
     # return 1.0 * acc_reward + 0.2 * format_reward + 1.0 * tool_reward + 0.2 * tool_reward_base

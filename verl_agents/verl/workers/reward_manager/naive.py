@@ -47,9 +47,15 @@ class NaiveRewardManager:
         reward_extra_info = defaultdict(list)
 
         action_or_attn_mask = data.batch['action_mask'] if 'action_mask' in data.batch.keys() else data.batch['attention_mask']
+        # if 'env_reward' in data.batch.keys():
+        #     reward_tensor += data.batch['env_reward']
+        #     print(f' [DEBUG reward] mean={reward_tensor.mean().item()}, min={reward_tensor.min().item()}, max={reward_tensor.max().item()}')
+
+##############################################################################################################################################################
         if 'env_reward' in data.batch.keys():
-            reward_tensor += data.batch['env_reward']
-            print(f' [DEBUG reward] mean={reward_tensor.mean().item()}, min={reward_tensor.min().item()}, max={reward_tensor.max().item()}')
+            env_reward_tensor = data.batch['env_reward']
+            # print(f' [DEBUG reward] mean={reward_tensor.mean().item()}, min={reward_tensor.min().item()}, max={reward_tensor.max().item()}')
+##############################################################################################################################################################
 
         already_print_data_sources = {}
 
@@ -77,6 +83,8 @@ class NaiveRewardManager:
 
             extra_info = data_item.non_tensor_batch.get("extra_info", None)
 
+            ability = data_item.non_tensor_batch.get("ability", None)
+
             score = self.compute_score(
                 data_source=data_source,
                 solution_str=response_str,
@@ -84,13 +92,27 @@ class NaiveRewardManager:
                 extra_info=extra_info,
             )
 
+            # print(f"#################### score: {score}")
+
+#############################################################################################################
+            if score['is_answer_right']:
+                reward_tensor[i] += env_reward_tensor[i]
+##############################################################################################################
+
             if isinstance(score, dict):
                 reward = score["score"]
                 # Store the information including original reward
                 for key, value in score.items():
-                    reward_extra_info[key].append(value)
+                    if key != "score":
+                        reward_extra_info[key].append(value)
+                reward_extra_info['ground_truth'].append(ground_truth)
+                reward_extra_info['data_source'].append(data_source)
+                reward_extra_info['ability'].append(ability)
             else:
                 reward = score
+                reward_extra_info['ground_truth'].append(ground_truth)
+                reward_extra_info['data_source'].append(data_source)
+                reward_extra_info['ability'].append(ability)
 
             reward_tensor[i, valid_response_length - 1] += reward
 
