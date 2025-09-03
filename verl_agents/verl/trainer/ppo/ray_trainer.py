@@ -946,6 +946,8 @@ class RayPPOTrainer:
         batch = None
         num_prompt_in_batch = 0
         num_gen_batches = 0
+
+        the_first_new_batch = None
 ##################################################################################################################
 
         for epoch in range(self.config.trainer.total_epochs):
@@ -1083,6 +1085,9 @@ class RayPPOTrainer:
                             new_batch.batch["token_level_rewards"] = new_batch.batch["token_level_scores"]
 
 ##################################################################################################################
+                    if the_first_new_batch is None:
+                        the_first_new_batch = new_batch
+
                     if not self.config.algorithm.filter_groups.enable:
                         batch = new_batch
                     else:  # NOTE: When prompts after filtering is less than train batch size,
@@ -1103,6 +1108,12 @@ class RayPPOTrainer:
                         for uid, metric_val in zip(
                             new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch[metric_name], strict=True
                         ):
+##################################################################################################################
+                            # if metric_val == 0.0:
+                            #     metric_val = 0.0
+                            # elif metric_val >= 1.0:
+                            #     metric_val = 1.0
+##################################################################################################################
                             prompt_uid2metric_vals[uid].append(metric_val)
 
                         prompt_uid2metric_std = {}
@@ -1218,8 +1229,46 @@ class RayPPOTrainer:
                         actor_output_metrics = reduce_metrics(actor_output.meta_info["metrics"])
                         metrics.update(actor_output_metrics)
 
+####################################################################################################################
+                    # Log rollout generations if enabled
+                    the_first_batch_rollout_data_dir = self.config.trainer.get("the_first_batch_rollout_data_dir", None)
+                    the_first_new_batch_reward_extra_infos_dict: dict[str, list] = {}
+
+                    for reward_extra_info_key in list(reward_extra_infos_dict.keys()):
+                        the_first_new_batch_reward_extra_infos_dict[reward_extra_info_key] = []
+
+                    for reward_extra_info_key in list(reward_extra_infos_dict.keys()):
+                        for reward_extra_info_item in the_first_new_batch.non_tensor_batch[reward_extra_info_key]:
+                            the_first_new_batch_reward_extra_infos_dict[reward_extra_info_key].append(reward_extra_info_item.tolist())
+
+                    if the_first_batch_rollout_data_dir:
+                        with _timer("dump_rollout_generations", timing_raw):
+                            print(the_first_new_batch.batch.keys())
+                            inputs = self.tokenizer.batch_decode(the_first_new_batch.batch["prompts"], skip_special_tokens=True)
+                            outputs = self.tokenizer.batch_decode(the_first_new_batch.batch["responses"], skip_special_tokens=True)
+                            scores = the_first_new_batch.batch["token_level_scores"].sum(-1).cpu().tolist()
+                            self._dump_generations(
+                                inputs=inputs,
+                                outputs=outputs,
+                                scores=scores,
+                                reward_extra_infos_dict=the_first_new_batch_reward_extra_infos_dict,
+                                dump_path=the_first_batch_rollout_data_dir,
+                            )
+
+                            the_first_new_batch = None
+
+
                     # Log rollout generations if enabled
                     rollout_data_dir = self.config.trainer.get("rollout_data_dir", None)
+                    batch_reward_extra_infos_dict: dict[str, list] = {}
+
+                    for reward_extra_info_key in list(reward_extra_infos_dict.keys()):
+                        batch_reward_extra_infos_dict[reward_extra_info_key] = []
+
+                    for reward_extra_info_key in list(reward_extra_infos_dict.keys()):
+                        for reward_extra_info_item in batch.non_tensor_batch[reward_extra_info_key]:
+                            batch_reward_extra_infos_dict[reward_extra_info_key].append(reward_extra_info_item.tolist())
+
                     if rollout_data_dir:
                         with _timer("dump_rollout_generations", timing_raw):
                             print(batch.batch.keys())
@@ -1230,9 +1279,10 @@ class RayPPOTrainer:
                                 inputs=inputs,
                                 outputs=outputs,
                                 scores=scores,
-                                reward_extra_infos_dict=reward_extra_infos_dict,
+                                reward_extra_infos_dict=batch_reward_extra_infos_dict,
                                 dump_path=rollout_data_dir,
                             )
+####################################################################################################################
 
                     # validate
                     if (

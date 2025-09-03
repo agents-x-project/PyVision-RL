@@ -11,7 +11,7 @@ export HYDRA_FULL_ERROR=1
 # EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn10_with_ds_with_filtering_with_clip_higher_with_seq-mean-token-mean-fixed_loss_agg_mode"
 
 PROJECT_NAME="pyvision-rl-v2"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_with_cummulative_reward"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_only_all_wrong_with_cummulative_reward_with_rollout16"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -74,7 +74,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
-    actor_rollout_ref.rollout.n=8 \
+    actor_rollout_ref.rollout.n=16 \
     actor_rollout_ref.rollout.max_num_batched_tokens=32768 \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
     actor_rollout_ref.rollout.enforce_eager=False \
@@ -91,6 +91,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.concurrent_workers=1 \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
     +trainer.rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/rollouts/${PROJECT_NAME}/${EXPERIMENT_NAME} \
+    +trainer.the_first_batch_rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/the_first_batch_rollouts/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb','rl_logging_board'] \
     trainer.val_before_train=False \

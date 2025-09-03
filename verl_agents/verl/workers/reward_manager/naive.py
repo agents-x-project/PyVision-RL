@@ -85,6 +85,8 @@ class NaiveRewardManager:
 
             ability = data_item.non_tensor_batch.get("ability", None)
 
+            uid = data_item.non_tensor_batch.get("uid", None)
+
             score = self.compute_score(
                 data_source=data_source,
                 solution_str=response_str,
@@ -108,11 +110,13 @@ class NaiveRewardManager:
                 reward_extra_info['ground_truth'].append(ground_truth)
                 reward_extra_info['data_source'].append(data_source)
                 reward_extra_info['ability'].append(ability)
+                reward_extra_info['uid'].append(uid)
             else:
                 reward = score
                 reward_extra_info['ground_truth'].append(ground_truth)
                 reward_extra_info['data_source'].append(data_source)
                 reward_extra_info['ability'].append(ability)
+                reward_extra_info['uid'].append(uid)
 
             reward_tensor[i, valid_response_length - 1] += reward
 
