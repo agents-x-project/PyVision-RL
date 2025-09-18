@@ -1,5 +1,11 @@
 # PyVision RL Training
 
+### Prepare the RL data and SFT ckpts
+
+SFT ckpts: https://huggingface.co/Agents-X/sft-data-v1-Qwen2.5-VL-7B-1epoch
+
+RL data: https://huggingface.co/datasets/Agents-X/de_visual_search
+
 ### Installation
 see https://github.com/Visual-Agent/DeepEyes
 
@@ -36,10 +42,12 @@ python test_call_qwen_serve.py
 ```
 
 ### Train
-After serving the LLM-as-a-judge and making sure it works well, you could start to train.
+After serving the llm-as-a-judge and making sure it works well, you could start to train. 
+Note: I strictly followed `verl`'s doc to start the multi-node RL training. If you want more detail, please check `verl`'s doc.
 
 #### Single Node
 ```bash
+# TODO
 bash run_train.sh
 ```
 
@@ -58,7 +66,9 @@ sbatch ./slurm_scripts/ray_worker1_start.sh
 # Start the second worker cluster.
 sbatch ./slurm_scripts/ray_worker2_start.sh
 ```
-After setup the ray head cluster and worker cluser, you need to do to the ray dash board to check the resources.
+After setup the ray head cluster and worker cluser, you need to go to the ray dash board and check the resources.
+
+Then, you need to change the llm-as-a-judge IP address to the Python file: `./verl_agents/verl/utils/reward_score/vl_agent.py`
 
 Finally, start training.
 ```bash
@@ -74,6 +84,17 @@ bash scripts/run_merge.sh
 
 #### Test
 see https://github.com/agents-x-project/TIR-Data-Synthesis
+
+#### Some details about this codebase.
+1. Where is the agent inference code?
+- ./verl_agents/verl/workers/agent/envs/agents_x
+- ./verl_agents/verl/workers/agent/parallel_env.py
+
+2. Where is the partial dynamic filtering code?
+- ./verl_agents/verl/trainer/ppo/ray_trainer.py (L1089 ~ L1136)
+
+3. Where is the reward function definition code?
+- ./verl_agents/verl/utils/reward_score/vl_agent.py (L214 ~ L316)
 
 
 ## 3. Reference Resources
