@@ -96,6 +96,9 @@ see https://github.com/agents-x-project/TIR-Data-Synthesis
 3. Where is the reward function definition code?
 - ./verl_agents/verl/utils/reward_score/vl_agent.py (L214 ~ L316)
 
+4. There are some thicky points about calling llm-as-a-judge serving API and logging the training record to WandB.
+- If your machine does not need a proxy to access the internet, just ignore this section. If not, remember, to call the llm-as-a-judge API scussessfully, no proxy on the API's IP.
+
 
 ## 3. Reference Resources
 - https://github.com/volcengine/verl/blob/c803b1f76936f134f919f13ebd668473f4f661ed/verl/utils/dataset/multiturn_sft_dataset.py#L108
