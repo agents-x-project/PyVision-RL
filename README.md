@@ -2,7 +2,7 @@
 
 ### Prepare the RL data and SFT ckpts
 
-SFT ckpts: https://huggingface.co/Agents-X/sft-data-v1-Qwen2.5-VL-7B-1epoch
+SFT ckpts: https://huggingface.co/Agents-X/sft-data-v2-Qwen2.5-VL-7B-1epoch
 
 RL data: https://huggingface.co/datasets/Agents-X/de_visual_search_filtered
 
