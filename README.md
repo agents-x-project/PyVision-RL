@@ -85,7 +85,7 @@ bash scripts/run_merge.sh
 #### Test
 see https://github.com/agents-x-project/TIR-Data-Synthesis
 
-#### Some details about this codebase.
+### Some details about this codebase.
 1. Where is the agent inference code?
 - ./verl_agents/verl/workers/agent/envs/agents_x
 - ./verl_agents/verl/workers/agent/parallel_env.py
