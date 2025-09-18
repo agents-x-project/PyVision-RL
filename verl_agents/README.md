@@ -1,7 +1,6 @@
 
 
 <div align="center">
-  <img src="docs/logo-deepeyes.jpg" alt="logo" height="100">
   <h1 style="font-size: 32px; font-weight: bold;"> DeepEyes: Incentivizing “Thinking with Images” via Reinforcement Learning </h1>
 
   <br>

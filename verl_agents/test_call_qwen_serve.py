@@ -1,7 +1,7 @@
 from openai import OpenAI
 import os
 
-os.environ['no_proxy'] = "10.140.0.231:18901"
+os.environ['no_proxy'] = "10.140.0.231:18901" # this is the IP address of your served LLM and no proxy on this IP.
 
 # Modify OpenAI's API key and API base to use vLLM's API server.
 openai_api_key = "EMPTY"
