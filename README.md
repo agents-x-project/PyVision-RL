@@ -1,32 +1,4 @@
-# Training o3-like Visual Agent with RL
-
-## 1. Single Turn RL
-
-### Installation
-```bash
-cd visagent
-conda create -n visagent python=3.10
-pip install torch==2.6.0
-pip install vllm==0.8.3
-pip install -e .
-pip install flash-attn --no-build-isolation # or build from source
-pip install -r requirements.txt
-```
-
-### Data Preparation
-```bash
-huggingface-cli login # fill token
-cd visagent && PYTHONPATH=. python examples/data_preprocess/mmk12.py --local_dir data/mmk12 --n_test 707
-```
-
-### Training
-```bash
-cd visagent && wandb login
-bash own_scripts/7b_single_grpo.sh vllm data/mmk12 /home/checkpoints/Qwen2.5-VL-7B-Instruct
-```
-
-## 2. Multi-Turn with Tool Using
-To be built for multi-turn with tool using.
+# PyVision RL Training
 
 ### Installation
 ```bash
