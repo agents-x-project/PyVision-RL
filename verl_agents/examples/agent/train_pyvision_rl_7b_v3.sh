@@ -13,8 +13,8 @@ export HYDRA_FULL_ERROR=1
 # PROJECT_NAME="pyvision-rl-v2"
 # EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_only_all_wrong_with_cummulative_reward_with_rollout16"
 
-PROJECT_NAME="pyvision-rl-v2"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_deepeyes_vs"
+PROJECT_NAME="pyvision-rl-v3"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_deepeyes_vs_filtered"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -41,17 +41,28 @@ PYVISION_DATASET_VIGORL_TRAIN_1=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/d
 PYVISION_DATASET_VIGORL_TRAIN_2=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/vigorl_datasets/parquet_files/train_3.parquet
 PYVISION_DATASET_VIGORL_TRAIN_3=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/vigorl_datasets/parquet_files/train_4.parquet
 
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_0=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_1.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_1=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_2.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_2=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_3.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_3=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_4.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_4=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_5.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_5=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_6.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_6=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_7.parquet
+PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_7=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files/train_8.parquet
+
 enable_filter_groups=True
 filter_groups_metric=seq_reward
 max_num_gen_batches=0
 
 # [${PYVISION_DATASET_DEEPEYES_TRAIN_0},${PYVISION_DATASET_DEEPEYES_TRAIN_1},${PYVISION_DATASET_DEEPEYES_TRAIN_2},${PYVISION_DATASET_DEEPEYES_TRAIN_3},${PYVISION_DATASET_ZEBRA_COT_TRAIN_0},${PYVISION_DATASET_ZEBRA_COT_TRAIN_1},${PYVISION_DATASET_ZEBRA_COT_TRAIN_2},${PYVISION_DATASET_ZEBRA_COT_TRAIN_3},${PYVISION_DATASET_VIGORL_TRAIN_0},${PYVISION_DATASET_VIGORL_TRAIN_1},${PYVISION_DATASET_VIGORL_TRAIN_2},${PYVISION_DATASET_VIGORL_TRAIN_3}]
+# [${PYVISION_DATASET_DEEPEYES_TRAIN_0},${PYVISION_DATASET_DEEPEYES_TRAIN_1},${PYVISION_DATASET_DEEPEYES_TRAIN_2},${PYVISION_DATASET_DEEPEYES_TRAIN_3}]
+# [${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_0},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_1},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_2},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_3},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_4},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_5},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_6},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_7}]
 
-REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/gveval_zhaoshitian/agents_x_data/sft_ckpt/qwen2_5vl-7b-2/full/sft
+REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/sft_ckpts/qwen2_5vl-7b-1epoch_v2/full/sft
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
     +vs_debug=True \
-    data.train_files=[${PYVISION_DATASET_DEEPEYES_TRAIN_0},${PYVISION_DATASET_DEEPEYES_TRAIN_1},${PYVISION_DATASET_DEEPEYES_TRAIN_2},${PYVISION_DATASET_DEEPEYES_TRAIN_3}] \
+    data.train_files=[${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_0},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_1},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_2},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_3},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_4},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_5},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_6},${PYVISION_DATASET_DEEPEYES_FILTERED_TRAIN_7}] \
     data.val_files=[${EUREKA_DATASET_TRAIN}] \
     data.train_batch_size=64 \
     data.max_prompt_length=32000 \

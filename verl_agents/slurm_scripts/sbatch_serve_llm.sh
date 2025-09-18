@@ -7,6 +7,7 @@
 #SBATCH --requeue
 #SBATCH --partition=Gveval-T
 #SBATCH --quotatype=reserved
+#SBATCH --nodelist=HOST-10-140-66-34
 
 # export CUDA_VISIBLE_DEVICES=4,5,6,7
 
