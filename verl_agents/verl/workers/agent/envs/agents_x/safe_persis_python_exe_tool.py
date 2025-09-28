@@ -75,16 +75,26 @@ class PersistentWorker:
                         stdout_output = program_io.read()
                         
                         # 只获取新生成的图像
-                        new_figures = runtime.captured_figures[pre_figures_count:]
-                        
-                        self.output_queue.put({
-                            'status': 'success',
-                            'result': {
-                                'text': stdout_output.strip(),
-                                'images': new_figures,
-                                'total_figures': len(runtime.captured_figures)
-                            }
-                        })
+                        if pre_figures_count == len(runtime.captured_figures):
+                            self.output_queue.put({
+                                'status': 'success',
+                                'result': {
+                                    'text': stdout_output.strip(),
+                                    'total_figures': len(runtime.captured_figures)
+                                }
+                            })
+
+                        else:
+                            new_figures = runtime.captured_figures[pre_figures_count:]
+                            
+                            self.output_queue.put({
+                                'status': 'success',
+                                'result': {
+                                    'text': stdout_output.strip(),
+                                    'images': new_figures,
+                                    'total_figures': len(runtime.captured_figures)
+                                }
+                            })
                     
                     except Exception as e:
                         self.output_queue.put({
@@ -189,12 +199,37 @@ class SafeImageRuntime:
             image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)
     
+#     def exec_code(self, code: str) -> None:
+#         """执行代码并捕获图形"""
+#         if regex.search(r"(\s|^)?(input|os\.system|subprocess)\(", code):
+#             raise RuntimeError("Forbidden function calls detected")
+        
+#         modified_code = code.replace("plt.show()", """
+# buf = io.BytesIO()
+# plt.savefig(buf, format='png')
+# buf.seek(0)
+# _captured_image = base64.b64encode(buf.read()).decode('utf-8')
+# _captured_figures.append(_captured_image)
+# plt.close()
+# """)
+#         try:
+#             exec(modified_code, self._global_vars)
+#         except Exception as e:
+#             plt.close('all')
+#             raise e
+
     def exec_code(self, code: str) -> None:
         """执行代码并捕获图形"""
         if regex.search(r"(\s|^)?(input|os\.system|subprocess)\(", code):
             raise RuntimeError("Forbidden function calls detected")
         
         modified_code = code.replace("plt.show()", """
+fig = plt.gcf()
+width_px = fig.get_figwidth() * fig.dpi
+height_px = fig.get_figheight() * fig.dpi
+aspect_ratio = max(width_px, height_px) / min(width_px, height_px)
+if aspect_ratio >= 200:
+    raise RuntimeError(f"Image aspect ratio too extreme: {aspect_ratio:.2f} (must be < 200)")
 buf = io.BytesIO()
 plt.savefig(buf, format='png')
 buf.seek(0)
@@ -271,6 +306,10 @@ class MultiModalPythonTool(ToolBase):
                     
                     if 'images' in exec_result and exec_result['images']:
                         images = [self._base64_to_image(img) for img in exec_result['images']]
+                        if None in images:
+                            error_msg = "Something wrong with processed images."
+                            obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+                            return obs, 0.0, False, {"error": error_msg}
                         image_content = []
                         image_clue_idx = self._figures_count
                         

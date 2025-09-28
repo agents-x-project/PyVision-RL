@@ -88,11 +88,24 @@ class RLHFDataset(Dataset):
     ):
         if not isinstance(data_files, (List, ListConfig)):
             data_files = [data_files]
+        
+        all_data_file_path_list = []
+        for data_dir in data_files:
+            data_file_name_list = os.listdir(data_dir)
+            for data_file_name in data_file_name_list:
+                data_file_path = os.path.join(data_dir, data_file_name)
+                all_data_file_path_list.append(data_file_path)
+
+        data_files = all_data_file_path_list
 
         self.data_files = copy.deepcopy(data_files)
         self.original_data_files = copy.deepcopy(data_files)  # use for resume
         self.tokenizer = tokenizer
         self.processor = processor
+        print("######################################################")
+        print(f"min pixels in image processor: {self.processor.image_processor.min_pixels}")
+        print(f"max pixels in image processor: {self.processor.image_processor.max_pixels}")
+        print("######################################################")
         self.config = config
 
         self.cache_dir = os.path.expanduser(config.get("cache_dir", "/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_data/cache"))

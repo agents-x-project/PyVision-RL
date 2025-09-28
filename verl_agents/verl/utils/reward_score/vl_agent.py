@@ -8,10 +8,7 @@ from math_verify import parse, verify
 
 openai_api_key = "EMPTY"
 os.environ['LLM_AS_A_JUDGE_BASE']='http://10.140.66.34:18901/v1'
-# openai_api_key = os.environ.get("LLM_AS_A_JUDGE_API_KEY")
 openai_api_base_list = [
-    # "http://172.30.52.123:8000/v1",
-    # "http://10.39.3.123:18901/v1",
     os.environ.get("LLM_AS_A_JUDGE_BASE"),
 ]
 os.environ['NO_PROXY_IP'] = '10.140.66.34:18901'
@@ -26,10 +23,6 @@ for api_base in openai_api_base_list:
     client_list.append(client)
 model_name_list = []
 for client in client_list:
-    # response = requests.get(f"{api_base}/models")
-    # print(f"RESPONSE:\n{response}")
-    # models = response.json()
-    # model_name_list.append(models['data'][0]['id'])
     model_name_list = ['judge']
 
 
@@ -174,24 +167,6 @@ Judgement:"""
 
     return full_prompt
 
-
-# def extract_answer(text):
-#     """
-#     从给定的文本中提取<answer></answer>标签内部的内容。
-    
-#     参数:
-#         text (str): 包含<answer>标签的文本
-        
-#     返回:
-#         str or None: 标签内部的内容，如果未找到则返回None。
-#     """
-#     # 使用非贪婪模式匹配<answer>和</answer>之间的内容
-#     pattern = r'<answer>(.*?)</answer>'
-#     match = re.search(pattern, text, re.DOTALL)
-#     if match:
-#         return match.group(1).strip()
-#     return None
-
 def extract_answer(text):
     """
     从给定的文本中提取<answer>\boxed{answer content}</answer>标签内部的内容。
@@ -244,13 +219,6 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None):
         reward['score'] = 0.0
         reward['is_answer_right'] = False
         return reward
-    # pattern = re.compile(r'<\|im_start\|>assistant(.*?)$', re.DOTALL)  # 匹配最后一个 target 后的所有内容
-    # match = pattern.search(predict_str)
-    # if match:
-    #     answer_text = match.group(1).strip()
-    #     print(f'DEBUG{answer_text=}')
-    # else:
-    #     answer_text = ""
 
     question_text = extra_info['question']
     full_prompt = get_prompt(answer_text, ground_truth, question_text)
@@ -304,11 +272,14 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None):
     tool_reward_base = 1.0 if count_vision_1 > 0 else 0.0
     tool_reward = 1.0 if count_vision_1 > 0 and acc_reward > 0.5 else 0.0
     format_reward = -1.0 if is_format_error else 0.0
-    # reward 1
+
+    #### reward 1 ####
     # return 0.8 * acc_reward + 0.2 * format_reward + 0.4 * tool_reward_base
-    # reward 2
+
+    #### reward 2 ####
     # return 0.8 * acc_reward + 0.2 * format_reward + 1.2 * tool_reward
-    # pyvision reward
+
+    #### pyvision reward ####
     reward = {}
     reward['score'] = 1.0 * acc_reward
     reward['is_answer_right'] = is_answer_right

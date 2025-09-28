@@ -6,6 +6,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --partition=Gveval-T
 #SBATCH --quotatype=reserved
+#SBATCH --nodelist=HOST-10-140-66-34
 
 set -xe
 # 自定义路径，过长或者机器上已有此目录会报错
