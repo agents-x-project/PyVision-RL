@@ -69,6 +69,10 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         res = vl_agent.compute_score(solution_str, ground_truth, extra_info)
         # print(f"############################# reward result: {res}")
 
+    elif data_source in ['vsi'] or data_source.endswith('_rule_verifiable'):
+        from . import rule_match_verify
+        res = rule_match_verify.compute_score_rule(solution_str, ground_truth)
+
     elif data_source in ['geoguessr']:
         from . import vl_agent
         res = vl_agent.compute_common_reasoning(solution_str, ground_truth, extra_info)
