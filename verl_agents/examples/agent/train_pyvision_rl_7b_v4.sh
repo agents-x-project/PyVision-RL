@@ -14,7 +14,7 @@ export HYDRA_FULL_ERROR=1
 # EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn4_with_ds_only_all_wrong_with_cummulative_reward_with_rollout16"
 
 PROJECT_NAME="pyvision-rl-v3"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_2M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout4_with_freezing_visual_encoder_with_12M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -92,7 +92,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.kl_loss_type=low_var_kl \
     actor_rollout_ref.actor.entropy_coeff=0.0 \
     actor_rollout_ref.actor.checkpoint.contents=['model','hf_model','optimizer','extra'] \
-    actor_rollout_ref.actor.ulysses_sequence_parallel_size=1 \
+    actor_rollout_ref.actor.ulysses_sequence_parallel_size=2 \
     algorithm.filter_groups.enable=${enable_filter_groups} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
     algorithm.filter_groups.metric=${filter_groups_metric} \
