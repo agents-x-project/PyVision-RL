@@ -158,3 +158,6 @@ slurm-*
 logs/
 wandb/
 the_first_batch_rollouts/
+
+## prevent overwrite
+.local/
