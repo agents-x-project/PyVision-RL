@@ -604,6 +604,8 @@ class ActorRolloutRefWorker(Worker):
         if self._is_offload_param:
             load_fsdp_model_to_gpu(self.actor_module_fsdp)
 
+        from contextlib import nullcontext
+
         # Support all hardwares
         data = data.to(torch.cuda.current_device())
         # we should always recompute old_log_probs when it is HybridEngine
@@ -612,14 +614,25 @@ class ActorRolloutRefWorker(Worker):
         data.meta_info["use_dynamic_bsz"] = self.config.rollout.log_prob_use_dynamic_bsz
         data.meta_info["temperature"] = self.config.rollout.temperature
         # perform recompute log_prob
+        # with self.ulysses_sharding_manager:
+            # data = self.ulysses_sharding_manager.preprocess_data(data)
+            # output, entropys = self.actor.compute_log_prob(data=data, calculate_entropy=True)
+            # output = DataProto.from_dict(
+            #     tensors={"old_log_probs": output, "entropys": entropys},
+            #     meta_info={"temperature": self.config.rollout.temperature},
+            # )
+            # output = self.ulysses_sharding_manager.postprocess_data(output)
+
+################################################################################################################
+        adapter_ctx = nullcontext()
         with self.ulysses_sharding_manager:
-            data = self.ulysses_sharding_manager.preprocess_data(data)
-            output, entropys = self.actor.compute_log_prob(data=data, calculate_entropy=True)
+            with adapter_ctx:
+                output, entropys = self.actor.compute_log_prob(data=data, calculate_entropy=True)
             output = DataProto.from_dict(
                 tensors={"old_log_probs": output, "entropys": entropys},
                 meta_info={"temperature": self.config.rollout.temperature},
             )
-            output = self.ulysses_sharding_manager.postprocess_data(output)
+##################################################################################################################
 
         output = output.to("cpu")
 
@@ -645,11 +658,17 @@ class ActorRolloutRefWorker(Worker):
         data.meta_info["temperature"] = self.config.rollout.temperature
         data.meta_info["max_token_len"] = self.config.ref.log_prob_max_token_len_per_gpu
         data.meta_info["use_dynamic_bsz"] = self.config.ref.log_prob_use_dynamic_bsz
+        # with self.ulysses_sharding_manager:
+        #     data = self.ulysses_sharding_manager.preprocess_data(data)
+        #     output, _ = self.ref_policy.compute_log_prob(data=data, calculate_entropy=False)
+        #     output = DataProto.from_dict(tensors={"ref_log_prob": output})
+        #     output = self.ulysses_sharding_manager.postprocess_data(output)
+#####################################################################################################################
         with self.ulysses_sharding_manager:
-            data = self.ulysses_sharding_manager.preprocess_data(data)
+            data = data.to("cpu")  # data will to device with each micro batch on ref.compute_log_prob
             output, _ = self.ref_policy.compute_log_prob(data=data, calculate_entropy=False)
             output = DataProto.from_dict(tensors={"ref_log_prob": output})
-            output = self.ulysses_sharding_manager.postprocess_data(output)
+########################################################################################################################
 
         output = output.to("cpu")
 
@@ -1122,6 +1141,10 @@ class RewardModelWorker(Worker):
             batch_size, seqlen = input_ids.shape
             attention_mask = micro_batch["attention_mask"]
             position_ids = micro_batch["position_ids"]
+#############################################################################################################
+            # if position_ids.dim() == 3:  # qwen2vl mrope
+            #     position_ids = position_ids.transpose(0, 1)  # (bsz, 3, seqlen) -> (3, bsz, seqlen)
+############################################################################################################
 
             if self.use_remove_padding:
                 input_ids_rmpad, indices, *_ = unpad_input(

@@ -10,5 +10,8 @@
 # umber of training nodes
 export WORLD_SIZE=2
 
+export NCCL_SOCKET_IFNAME=bond0
+export NCCL_IB_HCA=mlx5_2,mlx5_3,mlx5_4,mlx5_5
+
 # srun -p eaigc1_t  --gres=gpu:8 --cpus-per-task=1 -N2 --ntasks-per-node=8 --quotatype=reserved --job-name=pyvision \
 bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/examples/agent/train_pyvision_rl_7b_v4.sh

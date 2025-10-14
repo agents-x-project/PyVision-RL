@@ -15,8 +15,11 @@
 import inspect
 import os
 from typing import Optional, Tuple
+import logging
+from dataclasses import dataclass
 
 import torch
+import torch.distributed as dist
 from transformers.modeling_flash_attention_utils import _flash_attention_forward
 from transformers.utils import is_flash_attn_greater_or_equal
 
@@ -25,6 +28,7 @@ from verl.utils.ulysses import (
     gather_seq_scatter_heads,
     get_ulysses_sequence_parallel_world_size,
     validate_ulysses_config,
+    get_ulysses_sequence_parallel_group
 )
 
 try:
@@ -35,6 +39,106 @@ except ImportError:
     flash_attn_varlen_func = None
 
 
+# def get_rope_index(
+#     processor,
+#     input_ids: torch.Tensor,
+#     image_grid_thw: Optional[torch.Tensor] = None,
+#     video_grid_thw: Optional[torch.Tensor] = None,
+#     second_per_grid_ts: Optional[torch.Tensor] = None,
+#     attention_mask: Optional[torch.Tensor] = None,
+# ) -> torch.Tensor:
+#     """
+#     Gets the position ids for Qwen2-VL, it should be generated before sharding the sequence.
+#     The batch dim has been removed and the input_ids should be a 1D tensor representing a single example.
+#     https://github.com/huggingface/transformers/blob/v4.49.0/src/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py#L1546
+#     """
+#     spatial_merge_size = processor.image_processor.merge_size
+#     tokens_per_second = 2
+#     image_token_id = processor.tokenizer.convert_tokens_to_ids("<|image_pad|>")
+#     video_token_id = processor.tokenizer.convert_tokens_to_ids("<|video_pad|>")
+#     vision_start_token_id = processor.tokenizer.convert_tokens_to_ids("<|vision_start|>")
+#     if input_ids is not None and (image_grid_thw is not None or video_grid_thw is not None):
+#         if attention_mask is None:
+#             attention_mask = torch.ones_like(input_ids)
+
+#         position_ids = torch.ones(3, input_ids.size(0), dtype=input_ids.dtype, device=input_ids.device)  # (3, seqlen)
+#         image_index, video_index = 0, 0
+#         input_ids = input_ids[attention_mask == 1]
+#         image_nums, video_nums = 0, 0
+#         vision_start_indices = torch.argwhere(input_ids == vision_start_token_id)
+#         vision_tokens = input_ids[vision_start_indices + 1]
+#         image_nums = (vision_tokens == image_token_id).sum()
+#         video_nums = (vision_tokens == video_token_id).sum()
+#         input_tokens = input_ids.tolist()
+#         llm_pos_ids_list: list = []
+#         st = 0
+#         remain_images, remain_videos = image_nums, video_nums
+#         for _ in range(image_nums + video_nums):
+#             if image_token_id in input_tokens and remain_images > 0:
+#                 ed_image = input_tokens.index(image_token_id, st)
+#             else:
+#                 ed_image = len(input_tokens) + 1
+#             if video_token_id in input_tokens and remain_videos > 0:
+#                 ed_video = input_tokens.index(video_token_id, st)
+#             else:
+#                 ed_video = len(input_tokens) + 1
+#             if ed_image < ed_video:
+#                 t, h, w = (
+#                     image_grid_thw[image_index][0],
+#                     image_grid_thw[image_index][1],
+#                     image_grid_thw[image_index][2],
+#                 )
+#                 second_per_grid_t = 0
+#                 image_index += 1
+#                 remain_images -= 1
+#                 ed = ed_image
+#             else:
+#                 t, h, w = (
+#                     video_grid_thw[video_index][0],
+#                     video_grid_thw[video_index][1],
+#                     video_grid_thw[video_index][2],
+#                 )
+#                 second_per_grid_t = second_per_grid_ts[video_index] if second_per_grid_ts is not None else 1.0
+
+#                 video_index += 1
+#                 remain_videos -= 1
+#                 ed = ed_video
+
+#             llm_grid_t, llm_grid_h, llm_grid_w = (
+#                 t.item(),
+#                 h.item() // spatial_merge_size,
+#                 w.item() // spatial_merge_size,
+#             )
+#             text_len = ed - st
+
+#             st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
+#             llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)
+
+#             t_index = torch.arange(llm_grid_t).view(-1, 1).expand(-1, llm_grid_h * llm_grid_w)
+#             t_index = (t_index * second_per_grid_t * tokens_per_second).long().flatten()
+#             h_index = torch.arange(llm_grid_h).view(1, -1, 1).expand(llm_grid_t, -1, llm_grid_w).flatten()
+#             w_index = torch.arange(llm_grid_w).view(1, 1, -1).expand(llm_grid_t, llm_grid_h, -1).flatten()
+#             llm_pos_ids_list.append(torch.stack([t_index, h_index, w_index]) + text_len + st_idx)
+#             st = ed + llm_grid_t * llm_grid_h * llm_grid_w
+
+#         if st < len(input_tokens):
+#             st_idx = llm_pos_ids_list[-1].max() + 1 if len(llm_pos_ids_list) > 0 else 0
+#             text_len = len(input_tokens) - st
+#             llm_pos_ids_list.append(torch.arange(text_len).view(1, -1).expand(3, -1) + st_idx)
+
+#         llm_positions = torch.cat(llm_pos_ids_list, dim=1).reshape(3, -1)
+#         position_ids[..., attention_mask == 1] = llm_positions.to(position_ids.device)
+#     else:
+#         if attention_mask is not None:
+#             position_ids = attention_mask.long().cumsum(-1) - 1
+#             position_ids.masked_fill_(attention_mask == 0, 1)
+#             position_ids = position_ids.unsqueeze(0).expand(3, -1).to(input_ids.device)
+#         else:
+#             position_ids = torch.arange(input_ids.shape[1], device=input_ids.device).view(1, -1).expand(3, -1)
+
+#     return position_ids
+
+############################################################################################################################
 def get_rope_index(
     processor,
     input_ids: torch.Tensor,
@@ -46,7 +150,7 @@ def get_rope_index(
     """
     Gets the position ids for Qwen2-VL, it should be generated before sharding the sequence.
     The batch dim has been removed and the input_ids should be a 1D tensor representing a single example.
-    https://github.com/huggingface/transformers/blob/v4.49.0/src/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py#L1546
+    https://github.com/huggingface/transformers/blob/v4.52.4/src/transformers/models/qwen2_5_vl/modeling_qwen2_5_vl.py#L1405
     """
     spatial_merge_size = processor.image_processor.merge_size
     tokens_per_second = 2
@@ -133,24 +237,46 @@ def get_rope_index(
             position_ids = torch.arange(input_ids.shape[1], device=input_ids.device).view(1, -1).expand(3, -1)
 
     return position_ids
+###########################################################################################################################
 
 
+# def prepare_fa2_from_position_ids(
+#     query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, position_ids: torch.Tensor
+# ):
+#     query = query.view(-1, query.size(-2), query.size(-1))
+#     key = key.view(-1, key.size(-2), key.size(-1))
+#     value = value.view(-1, value.size(-2), value.size(-1))
+#     position_ids = position_ids.flatten()
+#     indices_q = torch.arange(position_ids.size(0), device=position_ids.device, dtype=torch.int32)
+#     cu_seqlens = torch.cat(
+#         (
+#             indices_q[position_ids == 0],
+#             torch.tensor(position_ids.size(), device=position_ids.device, dtype=torch.int32),
+#         )
+#     )
+#     max_length = cu_seqlens.diff().max()  # use cu_seqlens to infer max_length for qwen2vl mrope
+#     return (query, key, value, indices_q, (cu_seqlens, cu_seqlens), (max_length, max_length))
+
+#################################################################################################################
 def prepare_fa2_from_position_ids(
     query: torch.Tensor, key: torch.Tensor, value: torch.Tensor, position_ids: torch.Tensor
 ):
-    query = query.view(-1, query.size(-2), query.size(-1))
-    key = key.view(-1, key.size(-2), key.size(-1))
-    value = value.view(-1, value.size(-2), value.size(-1))
-    position_ids = position_ids.flatten()
-    indices_q = torch.arange(position_ids.size(0), device=position_ids.device, dtype=torch.int32)
+    print(f"############### prepare_fa2_from_position_ids ############################ position_ids ndim: {position_ids.ndim}")
+    print(f"############### prepare_fa2_from_position_ids ############################ position_ids shape: {position_ids.shape}")
+    assert position_ids.ndim == 2  # (batch_size, seq_length)
+    query = query.contiguous().view(-1, query.size(-2), query.size(-1))
+    key = key.contiguous().view(-1, key.size(-2), key.size(-1))
+    value = value.contiguous().view(-1, value.size(-2), value.size(-1))
+    position_ids = position_ids.view(-1)
     cu_seqlens = torch.cat(
         (
-            indices_q[position_ids == 0],
+            (position_ids == 0).nonzero().view(-1).to(torch.int32),
             torch.tensor(position_ids.size(), device=position_ids.device, dtype=torch.int32),
         )
     )
     max_length = cu_seqlens.diff().max()  # use cu_seqlens to infer max_length for qwen2vl mrope
-    return (query, key, value, indices_q, (cu_seqlens, cu_seqlens), (max_length, max_length))
+    return (query, key, value, (cu_seqlens, cu_seqlens), (max_length, max_length))
+################################################################################################################
 
 
 def flash_attention_forward(
@@ -184,24 +310,44 @@ def flash_attention_forward(
 
     if position_ids is not None and query_length != 1 and not (torch.diff(position_ids[0], dim=-1) >= 0).all():
         batch_size = query_states.size(0)
-        query_states, key_states, value_states, _, cu_seq_lens, max_seq_lens = prepare_fa2_from_position_ids(
-            query_states, key_states, value_states, position_ids[0]
-        )  # remove channel dimension
-        cu_seqlens_q, cu_seqlens_k = cu_seq_lens
-        max_seqlen_in_batch_q, max_seqlen_in_batch_k = max_seq_lens
+        # query_states, key_states, value_states, _, cu_seq_lens, max_seq_lens = prepare_fa2_from_position_ids(
+        #     query_states, key_states, value_states, position_ids[0]
+        # )  # remove channel dimension
+#####################################################################################################################
+        q, k, v, (cu_seqlens_q, cu_seqlens_k), (max_seqlen_q, max_seqlen_k) = prepare_fa2_from_position_ids(
+            query_states, key_states, value_states, position_ids
+        )
+#####################################################################################################################
+        # cu_seqlens_q, cu_seqlens_k = cu_seq_lens
+        # max_seqlen_in_batch_q, max_seqlen_in_batch_k = max_seq_lens
+        # attn_output = flash_attn_varlen_func(
+        #     query_states,
+        #     key_states,
+        #     value_states,
+        #     cu_seqlens_q=cu_seqlens_q,
+        #     cu_seqlens_k=cu_seqlens_k,
+        #     max_seqlen_q=max_seqlen_in_batch_q,
+        #     max_seqlen_k=max_seqlen_in_batch_k,
+        #     dropout_p=kwargs.pop("dropout", 0.0),
+        #     softmax_scale=kwargs.pop("softmax_scale", None),
+        #     causal=causal,
+        #     **flash_kwargs,
+        # )
+##########################################################################################################
         attn_output = flash_attn_varlen_func(
-            query_states,
-            key_states,
-            value_states,
+            q=q,
+            k=k,
+            v=v,
             cu_seqlens_q=cu_seqlens_q,
             cu_seqlens_k=cu_seqlens_k,
-            max_seqlen_q=max_seqlen_in_batch_q,
-            max_seqlen_k=max_seqlen_in_batch_k,
+            max_seqlen_q=max_seqlen_q,
+            max_seqlen_k=max_seqlen_k,
             dropout_p=kwargs.pop("dropout", 0.0),
             softmax_scale=kwargs.pop("softmax_scale", None),
-            causal=causal,
+            causal=is_causal,
             **flash_kwargs,
         )
+#############################################################################################################
         attn_output = attn_output.view(batch_size, -1, attn_output.size(-2), attn_output.size(-1))
     else:
         attn_output = _flash_attention_forward(
@@ -231,6 +377,7 @@ def ulysses_flash_attn_forward(
     from transformers.models.qwen2_vl.modeling_qwen2_vl import apply_multimodal_rotary_pos_emb, repeat_kv
 
     bsz, q_len, _ = hidden_states.size()  # q_len = seq_length / sp_size
+    print(f"shape of hidden_states inputted into the ulysses_flash_attn_forward: {hidden_states.shape}")
     query_states = self.q_proj(hidden_states)  # (batch_size, seq_length / sp_size, num_heads * head_size)
     key_states = self.k_proj(hidden_states)
     value_states = self.v_proj(hidden_states)
@@ -239,21 +386,7 @@ def ulysses_flash_attn_forward(
     key_states = key_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
     value_states = value_states.view(bsz, q_len, self.num_key_value_heads, self.head_dim).transpose(1, 2)
 
-    ulysses_sp_size = get_ulysses_sequence_parallel_world_size()
-
-    if ulysses_sp_size > 1:
-        validate_ulysses_config(self.num_heads, ulysses_sp_size)
-
-        key_states = repeat_kv(key_states, self.num_key_value_groups)
-        value_states = repeat_kv(value_states, self.num_key_value_groups)
-        query_states = gather_seq_scatter_heads(query_states, seq_dim=2, head_dim=1)
-        key_states = gather_seq_scatter_heads(key_states, seq_dim=2, head_dim=1)
-        value_states = gather_seq_scatter_heads(value_states, seq_dim=2, head_dim=1)
-        # (batch_size, num_head / sp_size, seq_length, head_size)
-        full_q_len = query_states.size(2)  # full_q_len = seq_length
-    else:
-        full_q_len = q_len
-
+########################################################################################################################
     # Because the input can be padded, the absolute sequence length depends on the max position id.
     if position_embeddings is None:
         cos, sin = self.rotary_emb(value_states, position_ids)
@@ -263,12 +396,80 @@ def ulysses_flash_attn_forward(
     query_states, key_states = apply_multimodal_rotary_pos_emb(
         query_states, key_states, cos, sin, self.rope_scaling["mrope_section"]
     )
+
+    print(f"&&&&&&&&&&&&&&&&&&&&&&  position_ids ndim: {position_ids.ndim} ### # (3, batch_size, seq_length / sp_size)")
+    print(f"&&&&&&&&&&&&&&&&&&&&&&  position_ids shape: {position_ids.shape} ### # (3, batch_size, seq_length / sp_size)")
+    if position_ids.ndim == 3:
+        position_ids = position_ids[0]
+        
+    if position_ids is not None:
+        assert position_ids.ndim == 2  # (batch_size, seq_length / sp_size)
+########################################################################################################################
+
+    ulysses_sp_size = get_ulysses_sequence_parallel_world_size()
+
+    if ulysses_sp_size > 1:
+        validate_ulysses_config(self.num_heads, ulysses_sp_size)
+
+        key_states = repeat_kv(key_states, self.num_key_value_groups)
+        value_states = repeat_kv(value_states, self.num_key_value_groups)
+
+        # full_q_len = query_states.size(2)  # full_q_len = seq_length
+        full_q_len = query_states.shape[2]  # full_q_len = seq_length
+
+#######################################################################################################################
+        # Reashape to the expected shape for Flash Attention
+        query_states = query_states.transpose(1, 2)
+        key_states = key_states.transpose(1, 2)
+        value_states = value_states.transpose(1, 2)
+#######################################################################################################################
+
+        # query_states = gather_seq_scatter_heads(query_states, seq_dim=2, head_dim=1)
+        # key_states = gather_seq_scatter_heads(key_states, seq_dim=2, head_dim=1)
+        # value_states = gather_seq_scatter_heads(value_states, seq_dim=2, head_dim=1)
+        query_states = gather_seq_scatter_heads(query_states, seq_dim=1, head_dim=2)
+        key_states = gather_seq_scatter_heads(key_states, seq_dim=1, head_dim=2)
+        value_states = gather_seq_scatter_heads(value_states, seq_dim=1, head_dim=2)
+        # (batch_size, num_head / sp_size, seq_length, head_size)
+######################################################################################################################
+        rank = dist.get_rank()
+        print(f"[Rank {rank}] Before all_gather, position_ids shape is: {position_ids.shape}")
+        dist.barrier() # 确保所有进程都打印完再继续
+        position_ids_lst = [torch.empty_like(position_ids) for _ in range(ulysses_sp_size)]
+        position_ids = dist.all_gather(position_ids_lst, position_ids.contiguous(), group=get_ulysses_sequence_parallel_group())
+        position_ids = torch.cat(position_ids_lst, dim=-1)  # (batch_size, seq_length)
+
+        # sp_group = get_ulysses_sequence_parallel_group()
+        # sp_size = dist.get_world_size(group=sp_group)
+        # # 先分配好接收缓冲区
+        # position_ids_lst = [torch.empty_like(position_ids) for _ in range(sp_size)]
+        # # 集体通信
+        # print(f"rank {dist.get_rank()}  before all_gather ", f"position_ids.shape={position_ids.shape}  sp_size={sp_size}")
+        # dist.all_gather(position_ids_lst, position_ids.contiguous(), group=sp_group)
+        # print(f"rank {dist.get_rank()}  after all_gather")
+        # # 拼回完整 seq_len
+        # position_ids = torch.cat(position_ids_lst, dim=-1)
+######################################################################################################################
+        # full_q_len = query_states.size(2)  # full_q_len = seq_length
+    else:
+        full_q_len = q_len
+
+    # # Because the input can be padded, the absolute sequence length depends on the max position id.
+    # if position_embeddings is None:
+    #     cos, sin = self.rotary_emb(value_states, position_ids)
+    # else:
+    #     cos, sin = position_embeddings
+
+    # query_states, key_states = apply_multimodal_rotary_pos_emb(
+    #     query_states, key_states, cos, sin, self.rope_scaling["mrope_section"]
+    # )
+
     dropout_rate = 0.0 if not self.training else self.attention_dropout
 
-    # Reashape to the expected shape for Flash Attention
-    query_states = query_states.transpose(1, 2)
-    key_states = key_states.transpose(1, 2)
-    value_states = value_states.transpose(1, 2)
+    # # Reashape to the expected shape for Flash Attention
+    # query_states = query_states.transpose(1, 2)
+    # key_states = key_states.transpose(1, 2)
+    # value_states = value_states.transpose(1, 2)
 
     if (
         self.config.use_sliding_window
@@ -291,9 +492,16 @@ def ulysses_flash_attn_forward(
         use_top_left_mask=self._flash_attn_uses_top_left_mask,
         position_ids=position_ids,  # important: pass position ids
     )  # (batch_size, seq_length, num_head / sp_size, head_size)
+
     if ulysses_sp_size > 1:
         attn_output = gather_heads_scatter_seq(attn_output, head_dim=2, seq_dim=1)
 
-    attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
+    # attn_output = attn_output.reshape(bsz, q_len, self.hidden_size).contiguous()
+#####################################################################################################################
+    # try:
+    attn_output = attn_output.reshape(bsz, full_q_len, self.hidden_size).contiguous()
+    # except:
+    #     attn_output = attn_output.reshape(bsz, full_q_len+2, self.hidden_size).contiguous()
+#####################################################################################################################
     attn_output = self.o_proj(attn_output)
     return attn_output, None, None

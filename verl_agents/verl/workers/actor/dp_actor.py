@@ -32,7 +32,7 @@ from verl.utils.debug import GPUMemoryLogger
 from verl.utils.py_functional import append_to_dict
 from verl.utils.seqlen_balancing import get_reverse_idx, rearrange_micro_batches
 from verl.utils.torch_functional import logprobs_from_logits
-from verl.utils.ulysses import gather_outpus_and_unpad, ulysses_pad_and_slice_inputs
+from verl.utils.ulysses import gather_outpus_and_unpad, ulysses_pad_and_slice_inputs, ulysses_pad
 from verl.workers.actor import BasePPOActor
 from verl.trainer.ppo.filter_fn_utils import max_interaction_budget_filter_fn
 
@@ -107,12 +107,38 @@ class DataParallelPPOActor(BasePPOActor):
 
                 # pad and slice the inputs if sp > 1
                 if self.use_ulysses_sp:
-                    input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
-                        input_ids_rmpad, position_ids_rmpad, sp_size=self.ulysses_sequence_parallel_size
+                    # input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
+                    #     input_ids_rmpad, position_ids_rmpad, sp_size=self.ulysses_sequence_parallel_size
+                    # )
+                    # input_ids_rmpad_rolled, _, _ = ulysses_pad_and_slice_inputs(
+                    #     input_ids_rmpad_rolled, None, self.ulysses_sequence_parallel_size
+                    # )
+
+################################################################################################################
+                    is_vlm_model = hasattr(
+                        getattr(self.actor_module, "module", self.actor_module).config, "vision_config"
                     )
+                    if is_vlm_model:
+                        # vlm model's inputs will be sliced after embedding
+                        print("################### vlm model's inputs will be sliced after embedding")
+                        input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad(
+                            input_ids_rmpad,
+                            position_ids_rmpad=position_ids_rmpad,
+                            sp_size=self.ulysses_sequence_parallel_size,
+                        )
+                    else:
+                        input_ids_rmpad, position_ids_rmpad, pad_size = ulysses_pad_and_slice_inputs(
+                            input_ids_rmpad,
+                            position_ids_rmpad=position_ids_rmpad,
+                            sp_size=self.ulysses_sequence_parallel_size,
+                        )
+
                     input_ids_rmpad_rolled, _, _ = ulysses_pad_and_slice_inputs(
-                        input_ids_rmpad_rolled, None, self.ulysses_sequence_parallel_size
+                        input_ids_rmpad_rolled,
+                        position_ids_rmpad=None,
+                        sp_size=self.ulysses_sequence_parallel_size,
                     )
+#############################################################################################################
 
                 input_ids_rmpad_rolled = input_ids_rmpad_rolled.squeeze(0)  # ((total_nnz / sp) + pad)
 

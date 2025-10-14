@@ -7,6 +7,9 @@ export NO_PROXY_IP='10.140.66.34:18901'
 export HYDRA_FULL_ERROR=1
 # export WANDB_MODE=offline
 
+export NCCL_SOCKET_IFNAME=bond0
+export NCCL_IB_HCA=mlx5_2,mlx5_3,mlx5_4,mlx5_5
+
 # PROJECT_NAME="pyvision-rl-v0"
 # EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v1_16gpu_maxturn10_with_ds_with_filtering_with_clip_higher_with_seq-mean-token-mean-fixed_loss_agg_mode"
 
@@ -75,7 +78,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +vs_debug=True \
     data.train_files=[${PYVISION_DATASET_DIR_DEEPEYES},${PYVISION_DATASET_DIR_MINIO3}] \
     data.val_files=[${EUREKA_DATASET_TRAIN}] \
-    data.train_batch_size=64 \
+    data.train_batch_size=16 \
     data.max_prompt_length=32000 \
     data.max_response_length=20480 \
     data.return_raw_chat=True \
@@ -85,7 +88,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.model.path=${REF_MODEL_PATH} \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=16 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=1 \
     actor_rollout_ref.actor.use_kl_loss=False \
     actor_rollout_ref.actor.kl_loss_coef=0.0 \
