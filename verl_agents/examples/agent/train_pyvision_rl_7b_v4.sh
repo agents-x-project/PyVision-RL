@@ -15,7 +15,7 @@ export HYDRA_FULL_ERROR=1
 
 PROJECT_NAME="pyvision-rl-v3"
 # EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout4_with_freezing_visual_encoder_with_12M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_2M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs_resume_from_100steps_with_deepeyes_only"
+EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_2M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs_resume_from_100steps_with_deepeyes_only_with_overbudgetmasking"
 
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 # export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
@@ -109,6 +109,8 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.enable_chunked_prefill=False \
     actor_rollout_ref.actor.fsdp_config.param_offload=True \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=True \
+    actor_rollout_ref.actor.interaction_budget=4 \
+    actor_rollout_ref.actor.overbudget_masking=True \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     actor_rollout_ref.rollout.agent.activate_agent=True \
