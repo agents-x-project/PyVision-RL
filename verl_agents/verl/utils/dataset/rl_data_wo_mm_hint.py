@@ -89,12 +89,11 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
         if not isinstance(data_files, (List, ListConfig)):
             data_files = [data_files]
         
-        all_data_list = []
+        all_data_file_path_list = []
         for data_file_path in data_files:
-            data_list = json.load(open(data_file_path, "r"))
-            all_data_list += data_list
+            all_data_file_path_list.append(data_file_path)
 
-        data_files = all_data_list
+        data_files = all_data_file_path_list
 
         self.data_files = copy.deepcopy(data_files)
         self.original_data_files = copy.deepcopy(data_files)  # use for resume
@@ -108,9 +107,9 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
         self.cache_dir = os.path.expanduser(config.get("cache_dir", "/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_data/cache"))
         self.prompt_key = config.get("prompt_key", "prompt")
-        # self.image_key = config.get("image_key", "images")
-        # self.video_key = config.get("video_key", "videos")
-        self.mm_hint = config.get("mm_hint_key", "mm_hint")
+        self.image_key = config.get("image_key", "images")
+        self.video_key = config.get("video_key", "videos")
+        self.mm_hint_key = config.get("mm_hint_key", "mm_hint")
         self.max_prompt_length = config.get("max_prompt_length", 1024)
 
         self.return_raw_chat = config.get("return_raw_chat", False)
@@ -171,31 +170,35 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
     def _read_files_and_tokenize(self):
         # Generate a unique cache file name based on data_files and config
-        data_files_str = "".join(sorted(self.data_files))
-        config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
-        hash_input = data_files_str + config_str
-        hash_name = hashlib.md5(hash_input.encode()).hexdigest()
-        cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
+        # data_files_str = "".join(sorted(self.data_files))
+        # config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
+        # hash_input = data_files_str + config_str
+        # hash_name = hashlib.md5(hash_input.encode()).hexdigest()
+        # cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
 
-        os.makedirs(self.cache_dir, exist_ok=True)
+        # os.makedirs(self.cache_dir, exist_ok=True)
 
-        if os.path.exists(cache_file):
-            print(f"Loading dataset from cache: {cache_file}")
-            self.dataframe = torch.load(cache_file, weights_only=False)
-        else:
-            dataframes = []
-            for parquet_file in self.data_files:
-                dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-                dataframes.append(dataframe)
-            self.dataframe = datasets.concatenate_datasets(dataframes)
+        # if os.path.exists(cache_file):
+        #     print(f"Loading dataset from cache: {cache_file}")
+        #     self.dataframe = torch.load(cache_file, weights_only=False)
+        # else:
 
-            print(f"dataset len: {len(self.dataframe)}")
+        dataframes = []
+        for data_file_path in self.data_files:
+            data_list = json.load(open(data_file_path, "r"))
+            dataframes += data_list
 
-            self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+        self.dataframe = datafrmaes
 
-            # Save processed dataset to cache
-            print(f"Saving dataset to cache: {cache_file}")
-            torch.save(self.dataframe, cache_file)
+        # self.dataframe = datasets.concatenate_datasets(dataframes)
+
+        print(f"dataset len: {len(self.dataframe)}")
+
+        # self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
+
+        # Save processed dataset to cache
+        print(f"Saving dataset to cache: {cache_file}")
+        # torch.save(self.dataframe, cache_file)
 
         print(f"Final dataset len: {len(self.dataframe)}")
 
@@ -277,21 +280,21 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
     def _build_messages_pyvision(self, example: dict):
         messages: list = example.pop(self.prompt_key)
 
-        if self.image_key in example or self.video_key in example:
-            for message in messages:
-                content = message["content"]
-                content_list = []
-                for segment in re.split("(<image>|<video>)", content):
-                    if segment == "<image>":
-                        content_list.append({"type": "text", "text": "<image_clue_0>"})
-                        content_list.append({"type": "image"})
-                        content_list.append({"type": "text", "text": "</image_clue_0>"})
-                    elif segment == "<video>":
-                        content_list.append({"type": "video"})
-                    else:
-                        content_list.append({"type": "text", "text": segment})
+        # if self.mm_hint_key in example:
+        #     for message in messages:
+        #         content = message["content"]
+        #         content_list = []
+        #         for segment in re.split("(<image>|<video>)", content):
+        #             if segment == "<image>":
+        #                 content_list.append({"type": "text", "text": "<image_clue_0>"})
+        #                 content_list.append({"type": "image"})
+        #                 content_list.append({"type": "text", "text": "</image_clue_0>"})
+        #             elif segment == "<video>":
+        #                 content_list.append({"type": "video"})
+        #             else:
+        #                 content_list.append({"type": "text", "text": segment})
 
-                message["content"] = content_list
+        #         message["content"] = content_list
 
         return messages
 
@@ -310,24 +313,34 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
             raw_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             multi_modal_data = {}
             origin_multi_modal_data = {}
+            multi_modal_hint = {}
 
             images = None
-            if self.image_key in row_dict:
+            videos = None
+            if self.mm_hint_key in row_dict:
                 # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
                 # image = row_dict.get(self.image_key)
                 # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
                 # images = [process_image(image) for image in row_dict.pop(self.image_key)]
-                origin_images = [process_raw_image(row_dict.get(self.image_key))]
-                images = [process_image(row_dict.pop(self.image_key))]
-                multi_modal_data["image"] = images
-                origin_multi_modal_data["image"] = origin_images
+                mm_hint_type = row_dict[self.mm_hint_key]['hint_type']
+                mm_hint_path = row_dict[self.mm_hint_key]['hint_path']
+                if mm_hint_type is "image":
+                    image = Image.open(mm_hint_path).convert("RGB")
+                    origin_images = [process_raw_image(image)]
+                    images = [process_image(image)]
+                    multi_modal_data["image"] = images
+                    origin_multi_modal_data["image"] = origin_images
+                    multi_modal_hint['mm_hint_content'] = images
+                    multi_modal_hint['mm_hint_type'] = "image"
 
-            videos = None
-            if self.video_key in row_dict:
-                videos = [process_video(video) for video in row_dict.pop(self.video_key)]
-                multi_modal_data["video"] = [video.numpy() for video in videos]
+                if mm_hint_type is "video":
+                    video = 
+                    videos = [process_video(video)]
+                    multi_modal_data["video"] = [video.numpy() for video in videos]
+                    multi_modal_hint['mm_hint_content'] = [video.numpy() for video in videos]
+                    multi_modal_hint['mm_hint_type'] = "video"
 
-            model_inputs = self.processor(text=[raw_prompt], images=images, videos=videos, return_tensors="pt")
+            model_inputs = self.processor(text=[raw_prompt], return_tensors="pt")
 
             input_ids = model_inputs.pop("input_ids")
             attention_mask = model_inputs.pop("attention_mask")
@@ -358,22 +371,23 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
             truncation=self.truncation,
         )
 
-        if self.processor is not None and self.processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor":
-            from verl.models.transformers.qwen2_vl import get_rope_index
+        # if self.processor is not None and self.processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor":
+        #     from verl.models.transformers.qwen2_vl import get_rope_index
 
-            position_ids = [
-                get_rope_index(
-                    self.processor,
-                    input_ids=input_ids[0],
-                    image_grid_thw=model_inputs.get("image_grid_thw"),
-                    video_grid_thw=model_inputs.get("video_grid_thw"),
-                    second_per_grid_ts=model_inputs.get("second_per_grid_ts"),
-                    attention_mask=attention_mask[0],
-                )
-            ]  # (1, 3, seq_len)
+        #     position_ids = [
+        #         get_rope_index(
+        #             self.processor,
+        #             input_ids=input_ids[0],
+        #             image_grid_thw=model_inputs.get("image_grid_thw"),
+        #             video_grid_thw=model_inputs.get("video_grid_thw"),
+        #             second_per_grid_ts=model_inputs.get("second_per_grid_ts"),
+        #             attention_mask=attention_mask[0],
+        #         )
+        #     ]  # (1, 3, seq_len)
 
-        else:
-            position_ids = compute_position_id_with_mask(attention_mask)
+        # else:
+            
+        position_ids = compute_position_id_with_mask(attention_mask)
 
         row_dict["input_ids"] = input_ids[0]
         row_dict["attention_mask"] = attention_mask[0]
