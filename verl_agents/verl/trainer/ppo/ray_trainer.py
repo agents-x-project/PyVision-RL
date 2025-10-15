@@ -52,6 +52,7 @@ from verl.trainer.ppo.metric_utils import (
 )
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
+from verl.utils.dataset.rl_dataset_wo_mm_hint import RLHF_wo_mm_hint_Dataset
 from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
@@ -463,6 +464,8 @@ class RayPPOTrainer:
         # TODO: we have to make sure the batch size is divisible by the dp size
         from verl.utils.import_utils import load_extern_type
 
+        w_or_wo_mm_hint_type = self.config.data.w_or_wo_mm_hint_type
+
         if "custom_cls" in self.config.data and self.config.data.custom_cls.get("path", None) is not None:
             dataset_cls = load_extern_type(self.config.data.custom_cls.path, self.config.data.custom_cls.name)
             if not issubclass(dataset_cls, Dataset):
@@ -471,7 +474,12 @@ class RayPPOTrainer:
                     f"'{self.config.data.custom_cls.path}' must inherit from torch.utils.data.Dataset"
                 )
         else:
-            dataset_cls = RLHFDataset
+            if w_or_wo_mm_hint_type is "w":
+                dataset_cls = RLHFDataset
+            elif w_or_wo_mm_hint_type is "wo":
+                dataset_cls = RLHF_wo_mm_hint_Dataset
+            else:
+                print("does your data with or without mm hint?")
 
         self.train_dataset = dataset_cls(
             data_files=self.config.data.train_files,
