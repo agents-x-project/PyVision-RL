@@ -61,6 +61,9 @@ PROJECT_NAME="pyvision-rl-v3"
 EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_2M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs_resume_from_100steps_with_deepeyes_only_with_overbudgetmasking"
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
 
+ROLLOUT_SAVE_DIR_PATH=./rollouts
+FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
+
 
 ####################################################### Training Data Path Parameter ####################################################################
                                                                                                                                                         #
@@ -79,6 +82,17 @@ filter_groups_metric=seq_reward                                                 
 max_num_gen_batches=0                                                                            #
 ##################################################################################################
 
+#################################### Other RL Parameter ##########################################
+rollout_num=8                                                                                    #
+interaction_budget=4                                                                             #
+max_turn=5                                                                                       #
+overbudget_masking=True                                                                          #
+# NOTE: interaction_budget = max_turn - 1                                                        #
+                                                                                                 #
+with_mm_hint=True                                                                              #
+##################################################################################################
+
+
 REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/sft_ckpts/qwen2_5vl-7b-1epoch_v2/full/sft
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
@@ -89,6 +103,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     data.max_response_length=20480 \
     data.return_raw_chat=True \
     data.filter_overlong_prompts=True \
+    data.with_mm_hint=${with_mm_hint} \
     algorithm.adv_estimator=grpo \
     algorithm.kl_ctrl.kl_coef=0.0 \
     actor_rollout_ref.model.path=${REF_MODEL_PATH} \
@@ -108,7 +123,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
-    actor_rollout_ref.rollout.n=8 \
+    actor_rollout_ref.rollout.n=${rollout_num} \
     actor_rollout_ref.rollout.max_num_batched_tokens=32768 \
     actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
     actor_rollout_ref.rollout.enforce_eager=False \
@@ -116,18 +131,18 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.enable_chunked_prefill=False \
     actor_rollout_ref.actor.fsdp_config.param_offload=True \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=True \
-    actor_rollout_ref.actor.interaction_budget=4 \
-    actor_rollout_ref.actor.overbudget_masking=True \
+    actor_rollout_ref.actor.interaction_budget=${interaction_budget} \
+    actor_rollout_ref.actor.overbudget_masking=${overbudget_masking} \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     actor_rollout_ref.rollout.agent.activate_agent=True \
     actor_rollout_ref.rollout.agent.tool_name_key=env_name \
     actor_rollout_ref.rollout.agent.single_response_max_tokens=10240 \
-    actor_rollout_ref.rollout.agent.max_turns=5 \
+    actor_rollout_ref.rollout.agent.max_turns=${max_turn} \
     actor_rollout_ref.rollout.agent.concurrent_workers=1 \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
-    +trainer.rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/rollouts/${PROJECT_NAME}/${EXPERIMENT_NAME} \
-    +trainer.the_first_batch_rollout_data_dir=/mnt/petrelfs/zhaoshitian/vis_tool_train/the_first_batch_rollouts/${PROJECT_NAME}/${EXPERIMENT_NAME} \
+    +trainer.rollout_data_dir=${ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
+    +trainer.the_first_batch_rollout_data_dir=${FIRST_ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb','rl_logging_board'] \
     trainer.val_before_train=False \

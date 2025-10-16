@@ -17,7 +17,7 @@ data:
   image_key: image
   video_key: videos
   mm_hint_key: mm_hint
-  w_or_wo_mm_hint: w # ["w", "wo"]   "w" is default
+  with_mm_hint: True 
   custom_cls:
       path: null
       name: null
