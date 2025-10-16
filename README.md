@@ -9,7 +9,7 @@ SFT ckpts: https://huggingface.co/Agents-X/sft-data-v2-Qwen2.5-VL-7B-1epoch
 RL data: https://huggingface.co/datasets/Agents-X/de_visual_search_filtered
 (parquet files)
 
-#### Withour Multi-modal Hint in the Input
+#### Without Multi-modal Hint in the Input
 TODO
 
 ### Installation
@@ -59,15 +59,25 @@ Note: I strictly followed `verl`'s doc to start the multi-node RL training. If y
 
 PROJECT_NAME="pyvision-rl-v3"
 EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_2M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs_resume_from_100steps_with_deepeyes_only_with_overbudgetmasking"
-
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
-# export VLLM_ATTENTION_BACKEND=XFORMERS # vllm + qwen2-7b with flash_attn has some issues
 
-PYVISION_DATASET_DIR_DEEPEYES=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files
 
-enable_filter_groups=True
-filter_groups_metric=seq_reward
-max_num_gen_batches=0
+####################################################### Training Data Path Parameter ####################################################################
+                                                                                                                                                        #
+# If with mm hint in the input, the data path should be the dir path containing the parquet files.                                                      #
+PYVISION_DATASET_DIR_DEEPEYES=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files             #
+                                                                                                                                                        #
+# If without mm hint in the input, the data path should be json file path.                                                                              #
+                                                                                                                                                        #
+# TODO                                                                                                                                                  #
+                                                                                                                                                        #
+#########################################################################################################################################################
+
+#################################### Dynamic Sampling Parameter ##################################
+enable_filter_groups=True                                                                        #
+filter_groups_metric=seq_reward                                                                  #
+max_num_gen_batches=0                                                                            #
+##################################################################################################
 
 REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/sft_ckpts/qwen2_5vl-7b-1epoch_v2/full/sft
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
