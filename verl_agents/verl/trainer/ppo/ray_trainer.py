@@ -52,7 +52,7 @@ from verl.trainer.ppo.metric_utils import (
 )
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
-# from verl.utils.dataset.rl_dataset_wo_mm_hint import RLHF_wo_mm_hint_Dataset
+from verl.utils.dataset.rl_dataset_wo_mm_hint import RLHF_wo_mm_hint_Dataset
 from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
@@ -477,7 +477,7 @@ class RayPPOTrainer:
             if with_mm_hint:
                 dataset_cls = RLHFDataset
             else:
-                print("not implemented.")
+                dataset_cls = RLHF_wo_mm_hint_Dataset
 
         self.train_dataset = dataset_cls(
             data_files=self.config.data.train_files,

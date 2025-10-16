@@ -89,7 +89,7 @@ max_turn=5                                                                      
 overbudget_masking=True                                                                          #
 # NOTE: interaction_budget = max_turn - 1                                                        #
                                                                                                  #
-with_mm_hint=True                                                                              #
+with_mm_hint=True                                                                                #
 ##################################################################################################
 
 

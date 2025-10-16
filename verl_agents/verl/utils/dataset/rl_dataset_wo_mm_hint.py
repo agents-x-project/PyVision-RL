@@ -132,57 +132,7 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
         for i, parquet_file in enumerate(data_files):
             self.data_files[i] = copy_to_local(src=parquet_file, cache_dir=self.cache_dir)
 
-    # def _read_files_and_tokenize(self):
-    #     dataframes = []
-    #     for parquet_file in self.data_files:
-    #         # read parquet files and cache
-    #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-    #         dataframes.append(dataframe)
-    #     self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
-
-    #     print(f"dataset len: {len(self.dataframe)}")
-
-    #     # filter out too long prompts
-    #     if self.filter_overlong_prompts:
-    #         tokenizer = self.tokenizer
-    #         prompt_key = self.prompt_key
-    #         self.dataframe = self.dataframe.filter(
-    #             lambda doc: len(tokenizer.apply_chat_template(doc[prompt_key], add_generation_prompt=True))
-    #             <= self.max_prompt_length,
-    #             num_proc=self.num_workers,
-    #             desc=f"Filtering prompts longer than {self.max_prompt_length} tokens",
-    #         )
-
-    #         print(f"filter dataset len: {len(self.dataframe)}")
-
-######################################################################################################################
-    # def _read_files_and_tokenize(self):
-    #     dataframes = []
-    #     for parquet_file in self.data_files:
-    #         # read parquet files and cache
-    #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-    #         dataframes.append(dataframe)
-    #     self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
-
-    #     print(f"dataset len: {len(self.dataframe)}")
-
-    #     self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
-
     def _read_files_and_tokenize(self):
-        # Generate a unique cache file name based on data_files and config
-        # data_files_str = "".join(sorted(self.data_files))
-        # config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
-        # hash_input = data_files_str + config_str
-        # hash_name = hashlib.md5(hash_input.encode()).hexdigest()
-        # cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
-
-        # os.makedirs(self.cache_dir, exist_ok=True)
-
-        # if os.path.exists(cache_file):
-        #     print(f"Loading dataset from cache: {cache_file}")
-        #     self.dataframe = torch.load(cache_file, weights_only=False)
-        # else:
-
         dataframes = []
         for data_file_path in self.data_files:
             data_list = json.load(open(data_file_path, "r"))
@@ -190,111 +140,16 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
         self.dataframe = datafrmaes
 
-        # self.dataframe = datasets.concatenate_datasets(dataframes)
-
         print(f"dataset len: {len(self.dataframe)}")
-
-        # self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
-
-        # Save processed dataset to cache
-        print(f"Saving dataset to cache: {cache_file}")
         # torch.save(self.dataframe, cache_file)
 
         print(f"Final dataset len: {len(self.dataframe)}")
 
-    def maybe_filter_out_long_prompts(self, dataframe: datasets.Dataset = None):
-        # filter out too long prompts
-        if self.filter_overlong_prompts:
-            tokenizer = self.tokenizer
-            processor = self.processor
-            prompt_key = self.prompt_key
-            image_key = self.image_key
-            video_key = self.video_key
-
-            if processor is not None:
-                from verl.utils.dataset.vision_utils import process_image, process_video
-
-                def doc2len(doc) -> int:
-                    messages = self._build_messages_pyvision(doc)
-                    raw_prompt = self.processor.apply_chat_template(
-                        messages, add_generation_prompt=True, tokenize=False
-                    )
-                    # images = [process_image(image) for image in doc[image_key]] if image_key in doc else None
-                    # videos = [process_video(video) for video in doc[video_key]] if video_key in doc else None
-
-                    images = [process_image(image) for image in [doc[image_key]]] if image_key in doc else None
-                    videos = [process_video(video) for video in [doc[video_key]]] if video_key in doc else None
-
-                    return len(processor(text=[raw_prompt], images=images, videos=videos)["input_ids"][0])
-
-            else:
-
-                def doc2len(doc) -> int:
-                    return len(
-                        tokenizer.apply_chat_template(
-                            doc[prompt_key], add_generation_prompt=True
-                        )
-                    )
-
-            dataframe = dataframe.filter(
-                lambda doc: doc2len(doc) <= self.max_prompt_length,
-                num_proc=self.num_workers,
-                desc=f"Filtering prompts longer than {self.max_prompt_length} tokens",
-            )
-
-            print(f"filter dataset len: {len(dataframe)}")
-        return dataframe
-###########################################################################################################################
-
-    def resume_dataset_state(self):
-        self.serialize_dataset = not hasattr(self, "original_data_files")
-        # resume dataframe if not it's serialized in data.pt
-        if not self.serialize_dataset:
-            self._download(use_origin_parquet=True)  # download and resume from original parquet files
-            self._read_files_and_tokenize()
-        else:
-            print(r"old dataloader ckpt file is used, please train from scratch for better ckpt performance")
-
     def __len__(self):
         return len(self.dataframe)
 
-    def _build_messages(self, example: dict):
-        messages: list = example.pop(self.prompt_key)
-
-        if self.image_key in example or self.video_key in example:
-            for message in messages:
-                content = message["content"]
-                content_list = []
-                for segment in re.split("(<image>|<video>)", content):
-                    if segment == "<image>":
-                        content_list.append({"type": "image"})
-                    elif segment == "<video>":
-                        content_list.append({"type": "video"})
-                    else:
-                        content_list.append({"type": "text", "text": segment})
-
-                message["content"] = content_list
-
-        return messages
-
     def _build_messages_pyvision(self, example: dict):
         messages: list = example.pop(self.prompt_key)
-
-        # if self.mm_hint_key in example:
-        #     for message in messages:
-        #         content = message["content"]
-        #         content_list = []
-        #         for segment in re.split("(<image>|<video>)", content):
-        #             if segment == "<image>":
-        #                 content_list.append({"type": "text", "text": "<image_clue_0>"})
-        #                 content_list.append({"type": "image"})
-        #                 content_list.append({"type": "text", "text": "</image_clue_0>"})
-        #             elif segment == "<video>":
-        #                 content_list.append({"type": "video"})
-        #             else:
-        #                 content_list.append({"type": "text", "text": segment})
-
-        #         message["content"] = content_list
 
         return messages
 
@@ -303,41 +158,39 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
         Note that we also return the raw_input_ids so that it can be combined with other chat template
         """
         row_dict: dict = self.dataframe[item]
-        # messages = self._build_messages(row_dict)
         messages = self._build_messages_pyvision(row_dict)
         model_inputs = {}
 
         if self.processor is not None:
-            from verl.utils.dataset.vision_utils import process_image, process_raw_image, process_video
+            from verl.utils.dataset.vision_utils import process_image, process_raw_image, process_video, process_video_pyvision
 
             raw_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             multi_modal_data = {}
             origin_multi_modal_data = {}
+
+            multi_modal_data['image'] = []
+            origin_multi_modal_data['image'] = []
+
             multi_modal_hint = {}
 
             images = None
             videos = None
             if self.mm_hint_key in row_dict:
-                # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
-                # image = row_dict.get(self.image_key)
-                # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
-                # images = [process_image(image) for image in row_dict.pop(self.image_key)]
                 mm_hint_type = row_dict[self.mm_hint_key]['hint_type']
                 mm_hint_path = row_dict[self.mm_hint_key]['hint_path']
                 if mm_hint_type is "image":
                     image = Image.open(mm_hint_path).convert("RGB")
                     origin_images = [process_raw_image(image)]
                     images = [process_image(image)]
-                    multi_modal_data["image"] = images
-                    origin_multi_modal_data["image"] = origin_images
-                    multi_modal_hint['mm_hint_content'] = images
+                    # multi_modal_data["image"] = images
+                    # origin_multi_modal_data["image"] = origin_images
+                    multi_modal_hint['mm_hint_content'] = origin_images
                     multi_modal_hint['mm_hint_type'] = "image"
 
                 if mm_hint_type is "video":
-                    video = 
-                    videos = [process_video(video)]
-                    multi_modal_data["video"] = [video.numpy() for video in videos]
-                    multi_modal_hint['mm_hint_content'] = [video.numpy() for video in videos]
+                    videos = [process_video_pyvision(mm_hint_path)]
+                    # multi_modal_data["video"] = videos
+                    multi_modal_hint['mm_hint_content'] = videos
                     multi_modal_hint['mm_hint_type'] = "video"
 
             model_inputs = self.processor(text=[raw_prompt], return_tensors="pt")

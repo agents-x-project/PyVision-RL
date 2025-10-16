@@ -18,6 +18,7 @@ from typing import Optional, Union
 import torch
 from PIL import Image
 from qwen_vl_utils import fetch_image, fetch_video
+from decord import VideoReader, cpu
 
 
 def process_raw_image(image: dict):
@@ -105,3 +106,7 @@ def process_video(
                 video["max_frames"] = fps_max_frames
 
     return fetch_video(video)
+
+def process_video_pyvision(video_path):
+    vr = VideoReader(video_path, ctx=cpu(0))
+    return vr
