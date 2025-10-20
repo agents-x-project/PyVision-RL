@@ -5,6 +5,7 @@
 PROJECT_NAME="pyvision-rl-v4-wo-mm-hint"
 EXPERIMENT_NAME="sft-wo-mm-hint-v1-rl-test"
 export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
+export TMPDIR="$HOME/tmp/ray"
 
 ROLLOUT_SAVE_DIR_PATH=/mnt/petrelfs/zhaoshitian/vis_tool_train/rollouts
 FIRST_ROLLOUT_SAVE_DIR_PATH=/mnt/petrelfs/zhaoshitian/vis_tool_train/the_first_batch_rollouts
@@ -17,7 +18,8 @@ PYVISION_DATASET_DIR_DEEPEYES=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/age
                                                                                                                                                         #
 # If without mm hint in the input, the data path should be json file path.                                                                              #
                                                                                                                                                         #
-PYVISION_DATASET_WO_MM_HINT=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k/train_data_wo_mm_hint_full_path.json                                                                                                                                                #
+PYVISION_IMAGE_DATASET_WO_MM_HINT=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/data/DeepEyes-Datasets-47k/train_data_wo_mm_hint_full_path.json  
+PYVISION_VIDEO_DATASET_WO_MM_HINT=/mnt/petrelfs/zhaoshitian/eaigc3_t_zhaoshitian/data/vsi/train_data_wo_mm_hint_full_path.json                                                                                                                                             #
                                                                                                                                                         #
 #########################################################################################################################################################
 
@@ -44,7 +46,7 @@ REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/sft_ckpts
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
     +vs_debug=True \
-    data.train_files=[${PYVISION_DATASET_WO_MM_HINT}] \
+    data.train_files=[${PYVISION_IMAGE_DATASET_WO_MM_HINT},${PYVISION_VIDEO_DATASET_WO_MM_HINT}] \
     data.train_batch_size=64 \
     data.max_prompt_length=32000 \
     data.max_response_length=20480 \

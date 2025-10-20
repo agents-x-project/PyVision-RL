@@ -220,8 +220,8 @@ class SafeImageRuntime:
                         image = base64_to_image(item_image_url)
                         if image:
                             image_var_dict[f"image_hint_{image_var_idx}"] = image
-                            init_captured_figures.append(base64.b64encode(
-                                BytesIO(image.tobytes()).getvalue()).decode('utf-8'))
+                            # init_captured_figures.append(base64.b64encode(
+                            #     BytesIO(image.tobytes()).getvalue()).decode('utf-8'))
                             image_var_idx += 1
 
             image_var_dict[f"_captured_figures"] = init_captured_figures

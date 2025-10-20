@@ -172,6 +172,9 @@ class SafeImageRuntime:
         "import base64",
         "import numpy as np",
         "_captured_figures = []",  # Initialize image capture list
+        "from decord import VideoReader",
+        "from decord import cpu",
+        "_video_support = True",
         # 添加 plt.show() 的替代函数
         """def _internal_capture_plt_figure():
     '''Capture current matplotlib figure and save to _captured_figures'''
@@ -204,14 +207,34 @@ class SafeImageRuntime:
 
         if messages:
             image_var_dict = {}
+            image_var_idx = 0
+            video_var_idx = 0
             init_captured_figures = []
             for i, message in enumerate(messages):
                 for item in message.get('content', []):
                     if item.get('type') == "image_url":
                         img = base64_to_image(item['image_url']['url'])
                         if img:
-                            image_var_dict[f"image_clue_{i}"] = img
+                            image_var_dict[f"image_clue_{image_var_idx}"] = img
                             init_captured_figures.append(img)
+
+                    elif item_type == "video_hint_path":
+                        # print(" videos are in the messages !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                        # 处理视频输入
+                        video_path = item.get('video_hint_path')
+                        if video_path and self._global_vars.get('_video_support', False):
+                            # 读取视频
+                            vr = VideoReader(video_path, ctx=cpu(0))
+                            image_var_dict[f"video_clue_{video_var_idx}"] = vr
+                            
+                            # 如果有采样帧信息，也处理采样帧
+                            # sampled_frames = item.get('sampled_frames', [])
+                            # for frame in sampled_frames:
+                            #     if isinstance(frame, Image.Image):
+                            #         image_var_dict[f"image_clue_{image_var_idx}"] = frame
+                            #         image_var_idx += 1
+                            
+                            video_var_idx += 1
 
             image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)
@@ -233,8 +256,8 @@ class SafeImageRuntime:
     def captured_figures(self):
         return self._global_vars.get("_captured_figures", [])
 
-class MultiModalPythonTool(ToolBase):
-    name = "pyvision_gym"
+class MultiModalPythonTool_wo_Video_Hint(ToolBase):
+    name = "pyvision_gym_wo_video_hint"
     description = "Tool for executing Python code with multimodal capabilities"
     
     def __init__(self, _name=None, _desc=None, _params=None, **kwargs):
@@ -243,7 +266,7 @@ class MultiModalPythonTool(ToolBase):
         self.multi_modal_data = None
         self.use_process_isolation = True
         self.persistent_worker = None  # 持久化的工作进程
-        self._figures_count = 1  # 跟踪图像数量
+        self._figures_count = 0  # 跟踪图像数量
     
     def _ensure_worker(self):
         """确保工作进程存在"""
@@ -372,7 +395,7 @@ class MultiModalPythonTool(ToolBase):
         
         # 重置持久化工作进程的状态
         if self.persistent_worker:
-            messages = self._convert_to_messages(origin_multi_modal_data)
+            messages = self._convert_to_messages_wo_video_hint(origin_multi_modal_data)
             self.persistent_worker.reset_runtime(messages)
     
     def __del__(self):
@@ -398,6 +421,25 @@ class MultiModalPythonTool(ToolBase):
             messages[0]["content"].append({
                 "type": "image_url",
                 "image_url": {"url": f"data:image/png;base64,{img_base64}"}
+            })
+        
+        return messages
+
+    def _convert_to_messages_wo_video_hint(self, multi_modal_data):
+        """Convert multi_modal_data to messages format"""
+        if not multi_modal_data or 'video' not in multi_modal_data:
+            return []
+        
+        messages = [{
+            "role": "user",
+            "content": []
+        }]
+        
+        for i, video_path in enumerate(multi_modal_data['video']):
+            
+            messages[0]["content"].append({
+                "type": "video_hint_path",
+                "video_hint_path": video_path
             })
         
         return messages

@@ -18,6 +18,7 @@ import re
 from collections import defaultdict
 from typing import List, Optional, Union
 import json
+from PIL import Image
 
 import datasets
 import numpy as np
@@ -170,7 +171,9 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
             origin_multi_modal_data = {}
 
             multi_modal_data['image'] = []
-            origin_multi_modal_data['image'] = []
+            # origin_multi_modal_data['image'] = []
+            # origin_multi_modal_data['video'] = []
+            origin_multi_modal_data = []
 
             multi_modal_hint = {}
 
@@ -183,15 +186,16 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
                     image = Image.open(mm_hint_path).convert("RGB")
                     origin_images = [process_raw_image(image)]
                     images = [process_image(image)]
-                    multi_modal_data["image"] = None
-                    origin_multi_modal_data["image"] = origin_images
+                    # multi_modal_data["image"] = None
+                    origin_multi_modal_data = {"image": origin_images}
                     # multi_modal_hint['mm_hint_content'] = origin_images
                     # multi_modal_hint['mm_hint_type'] = "image"
 
                 if mm_hint_type == "video":
-                    videos = [process_video_pyvision(mm_hint_path)]
-                    multi_modal_data["video"] = None
-                    origin_multi_modal_data["video"] = videos
+                    # videos = [process_video_pyvision(mm_hint_path)]
+                    videos = [mm_hint_path]
+                    # multi_modal_data["video"] = None
+                    origin_multi_modal_data = {"video": videos}
                     # multi_modal_hint['mm_hint_content'] = videos
                     # multi_modal_hint['mm_hint_type'] = "video"
 

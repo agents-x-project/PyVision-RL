@@ -62,16 +62,16 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         from . import agent
         res = agent.compute_score_eval(solution_str, ground_truth)
 
-    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-2.0-standard', 'wemath-2.0-pro', 'minio3']:
+    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-2.0-standard', 'wemath-2.0-pro', 'minio3', 'vsi']:
         from verl.utils.reward_score import vl_agent
         # print(f"################################## import the vl_agent successfully.")
         # from . import vl_agent
         res = vl_agent.compute_score(solution_str, ground_truth, extra_info)
         # print(f"############################# reward result: {res}")
 
-    elif data_source in ['vsi'] or data_source.endswith('_rule_verifiable'):
-        from . import rule_match_verify
-        res = rule_match_verify.compute_score_rule(solution_str, ground_truth)
+    elif data_source in ['vsi_numerical'] or data_source.endswith('_rule_verifiable'):
+        from . import rule_match_verify_mra
+        res = rule_match_verify.compute_score_rule_mra(solution_str, ground_truth)
 
     elif data_source in ['geoguessr']:
         from . import vl_agent

@@ -73,3 +73,29 @@ def compute_score_rule(solution_str: str,
     else:
         raise ValueError(f"Undefined answer_type: {answer_type} with solution_str: '{solution_str}', ground_truth: {ground_truth}")
 
+
+def compute_score_rule_mra(solution_str: str, 
+                       ground_truth: Union[str, int, float],
+                       apply_mra: bool = True) -> float:
+    '''
+    verify score by rule match
+    ground_truth should be a single uppercase letter or a int / float number
+    '''
+    # if str(solution_str).strip() == str(ground_truth).strip():
+    #     return 1.0
+
+    answer_number = _parse_number(solution_str)
+    gt_number = _parse_number(ground_truth)
+
+    acc_reward = _compute_mra(answer_number, gt_number)
+    if acc_reward >= 0.5:
+        is_answer_right = True 
+    else:
+        is_answer_right = False
+    reward = {}
+    reward['score'] = 1.0 * acc_reward
+    reward['is_answer_right'] = is_answer_right
+
+    return reward
+
+
