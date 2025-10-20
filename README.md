@@ -75,6 +75,18 @@ Test if the served llm works:
 python test_call_qwen_serve.py
 ```
 
+Finally, prepare the llm-as-a-judge config file. the `api_key` is useless, just keep it as `"[EMPTY]"`.
+
+```bash
+# ./configs/llm_as_a_judge.json
+
+{
+    "api_key": "[EMPTY]",
+    "base_url": "",
+    "model_name": ""
+}
+```
+
 ### Train
 After serving the llm-as-a-judge and making sure it works well, you could start to train. 
 Note: I strictly followed `verl`'s doc to start the multi-node RL training. If you want more detail, please check `verl`'s doc.
