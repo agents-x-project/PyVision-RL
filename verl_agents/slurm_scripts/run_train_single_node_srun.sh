@@ -1,0 +1,2 @@
+srun -p Gveval-T --gres=gpu:8 --cpus-per-task 1 -n1 --ntasks-per-node=1 --quotatype=spot --job-name wo_hint \
+bash /mnt/petrelfs/zhaoshitian/vis_tool_train/verl_agents/examples/agent/train_pyvision_rl_7b_wo_mm_hint.sh

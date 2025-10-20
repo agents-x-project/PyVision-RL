@@ -165,13 +165,30 @@ class SafeImageRuntime:
 
     HEADERS = [
         "import matplotlib",
-        "matplotlib.use('Agg')",
+        "matplotlib.use('Agg')",  # Use non-interactive backend
         "import matplotlib.pyplot as plt",
         "from PIL import Image",
         "import io",
         "import base64",
         "import numpy as np",
-        "_captured_figures = []",
+        "_captured_figures = []",  # Initialize image capture list
+        # 添加 plt.show() 的替代函数
+        """def _internal_capture_plt_figure():
+    '''Capture current matplotlib figure and save to _captured_figures'''
+    fig = plt.gcf()
+    width_px = fig.get_figwidth() * fig.dpi
+    height_px = fig.get_figheight() * fig.dpi
+    aspect_ratio = max(width_px, height_px) / min(width_px, height_px)
+    if aspect_ratio >= 200:
+        raise RuntimeError(f"Image aspect ratio too extreme: {aspect_ratio:.2f} (must be < 200)")
+
+    buf = io.BytesIO()
+    plt.savefig(buf, format='png')
+    buf.seek(0)
+    _captured_image = base64.b64encode(buf.read()).decode('utf-8')
+    _captured_figures.append(_captured_image)
+    plt.close()
+""",
     ]
 
     def __init__(self, messages=None):
@@ -198,45 +215,14 @@ class SafeImageRuntime:
 
             image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)
-    
-#     def exec_code(self, code: str) -> None:
-#         """执行代码并捕获图形"""
-#         if regex.search(r"(\s|^)?(input|os\.system|subprocess)\(", code):
-#             raise RuntimeError("Forbidden function calls detected")
-        
-#         modified_code = code.replace("plt.show()", """
-# buf = io.BytesIO()
-# plt.savefig(buf, format='png')
-# buf.seek(0)
-# _captured_image = base64.b64encode(buf.read()).decode('utf-8')
-# _captured_figures.append(_captured_image)
-# plt.close()
-# """)
-#         try:
-#             exec(modified_code, self._global_vars)
-#         except Exception as e:
-#             plt.close('all')
-#             raise e
 
     def exec_code(self, code: str) -> None:
         """执行代码并捕获图形"""
         if regex.search(r"(\s|^)?(input|os\.system|subprocess)\(", code):
             raise RuntimeError("Forbidden function calls detected")
+
+        modified_code = code.replace("plt.show()", "_internal_capture_plt_figure()")
         
-        modified_code = code.replace("plt.show()", """
-fig = plt.gcf()
-width_px = fig.get_figwidth() * fig.dpi
-height_px = fig.get_figheight() * fig.dpi
-aspect_ratio = max(width_px, height_px) / min(width_px, height_px)
-if aspect_ratio >= 200:
-    raise RuntimeError(f"Image aspect ratio too extreme: {aspect_ratio:.2f} (must be < 200)")
-buf = io.BytesIO()
-plt.savefig(buf, format='png')
-buf.seek(0)
-_captured_image = base64.b64encode(buf.read()).decode('utf-8')
-_captured_figures.append(_captured_image)
-plt.close()
-""")
         try:
             exec(modified_code, self._global_vars)
         except Exception as e:

@@ -503,28 +503,28 @@ class RayPPOTrainer:
             sampler=sampler,
         )
 
-        self.val_dataset = dataset_cls(
-            data_files=self.config.data.val_files,
-            tokenizer=self.tokenizer,
-            processor=self.processor,
-            config=self.config.data,
-        )
-        self.val_dataloader = StatefulDataLoader(
-            dataset=self.val_dataset,
-            # Validation datasets are sent to inference engines as a whole batch,
-            # which will schedule the memory themselves.
-            batch_size=len(self.val_dataset),
-            num_workers=8,
-            shuffle=False,
-            drop_last=False,
-            collate_fn=collate_fn,
-        )
+        # self.val_dataset = dataset_cls(
+        #     data_files=self.config.data.val_files,
+        #     tokenizer=self.tokenizer,
+        #     processor=self.processor,
+        #     config=self.config.data,
+        # )
+        # self.val_dataloader = StatefulDataLoader(
+        #     dataset=self.val_dataset,
+        #     # Validation datasets are sent to inference engines as a whole batch,
+        #     # which will schedule the memory themselves.
+        #     batch_size=len(self.val_dataset),
+        #     num_workers=8,
+        #     shuffle=False,
+        #     drop_last=False,
+        #     collate_fn=collate_fn,
+        # )
 
         assert len(self.train_dataloader) >= 1
-        assert len(self.val_dataloader) == 1, (
-            "Validation dataloader must have a single batch,"
-            + " which inference engines will schedule the memory themselves."
-        )
+        # assert len(self.val_dataloader) == 1, (
+        #     "Validation dataloader must have a single batch,"
+        #     + " which inference engines will schedule the memory themselves."
+        # )
 
         print(f"Size of train dataloader: {len(self.train_dataloader)}")
 

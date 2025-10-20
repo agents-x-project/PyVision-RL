@@ -17,6 +17,7 @@ import os
 import re
 from collections import defaultdict
 from typing import List, Optional, Union
+import json
 
 import datasets
 import numpy as np
@@ -138,7 +139,7 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
             data_list = json.load(open(data_file_path, "r"))
             dataframes += data_list
 
-        self.dataframe = datafrmaes
+        self.dataframe = dataframes
 
         print(f"dataset len: {len(self.dataframe)}")
         # torch.save(self.dataframe, cache_file)
@@ -178,20 +179,21 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
             if self.mm_hint_key in row_dict:
                 mm_hint_type = row_dict[self.mm_hint_key]['hint_type']
                 mm_hint_path = row_dict[self.mm_hint_key]['hint_path']
-                if mm_hint_type is "image":
+                if mm_hint_type == "image":
                     image = Image.open(mm_hint_path).convert("RGB")
                     origin_images = [process_raw_image(image)]
                     images = [process_image(image)]
-                    # multi_modal_data["image"] = images
-                    # origin_multi_modal_data["image"] = origin_images
-                    multi_modal_hint['mm_hint_content'] = origin_images
-                    multi_modal_hint['mm_hint_type'] = "image"
+                    multi_modal_data["image"] = None
+                    origin_multi_modal_data["image"] = origin_images
+                    # multi_modal_hint['mm_hint_content'] = origin_images
+                    # multi_modal_hint['mm_hint_type'] = "image"
 
-                if mm_hint_type is "video":
+                if mm_hint_type == "video":
                     videos = [process_video_pyvision(mm_hint_path)]
-                    # multi_modal_data["video"] = videos
-                    multi_modal_hint['mm_hint_content'] = videos
-                    multi_modal_hint['mm_hint_type'] = "video"
+                    multi_modal_data["video"] = None
+                    origin_multi_modal_data["video"] = videos
+                    # multi_modal_hint['mm_hint_content'] = videos
+                    # multi_modal_hint['mm_hint_type'] = "video"
 
             model_inputs = self.processor(text=[raw_prompt], return_tensors="pt")
 
