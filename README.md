@@ -10,9 +10,15 @@ RL data: https://huggingface.co/datasets/Agents-X/de_visual_search_filtered
 (parquet files)
 
 #### Without Multi-modal Hint in the Input
-TODO
 
-### Installation
+Image Dataset wo Image Hint: https://huggingface.co/datasets/Agents-X/rl_data_de_visual_search_filtered_wo_image_hint
+
+Video Dataset wo Video Hint: https://huggingface.co/datasets/Agents-X/rl_data_vsi_filtered_wo_video_hint
+
+SFT ckpts: https://huggingface.co/Agents-X/qwen2_5vl_7b_full_sft_251013_all_wo_hint-EMA
+
+### Installation For RL
+
 see https://github.com/Visual-Agent/DeepEyes
 
 ```bash
@@ -37,6 +43,28 @@ pip install -e .
 bash ./verl_agents/scripts/install_deepeyes.sh
 ```
 
+### Installation For PyVision-Interaction
+
+For the interaction environment, make sure these Python packages have been installed.
+```bash
+pillow
+matplotlib
+numpy
+timeout-decorator
+pebble
+regex
+markdown
+pytesseract
+scikit-image
+scipy
+scikit-learn
+easyocr
+webcolors<24.6.0
+nltk
+decord
+```
+
+
 ### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge
 ```bash
 cd verl_agents
@@ -57,9 +85,10 @@ Note: I strictly followed `verl`'s doc to start the multi-node RL training. If y
 # This is an example training script, you could create a new one.
 # For every training parameter explaination, check ./verl_agents/verl/trainer/config/ppo_trainer.yaml
 
-PROJECT_NAME="pyvision-rl-v3"
-EXPERIMENT_NAME="qwen25vl_7b_sft_1epoch_v2_16gpu_maxturn4_with_partial_ds_with_cummulative_reward_with_rollout8_with_freezing_visual_encoder_with_2M_maxpixels_with_deepeyes_vs_filtered_with_minio3_vs_resume_from_100steps_with_deepeyes_only_with_overbudgetmasking"
-export SAVE_CHECKPOINT_DIR=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_ckpts
+PROJECT_NAME="pyvision-rl-v0"
+EXPERIMENT_NAME="pyvision-rl"
+export SAVE_CHECKPOINT_DIR=/the/path/to/save/the/rl/ckpts
+export TMPDIR="$HOME/tmp/ray"
 
 ROLLOUT_SAVE_DIR_PATH=./rollouts
 FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
@@ -68,11 +97,12 @@ FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
 ####################################################### Training Data Path Parameter ####################################################################
                                                                                                                                                         #
 # If with mm hint in the input, the data path should be the dir path containing the parquet files.                                                      #
-PYVISION_DATASET_DIR_DEEPEYES=/mnt/petrelfs/zhaoshitian/eaigc2_t_zhaoshitian/agents_x/rl_data/filtered_deepeyes_visual_search_parquet_files             #
+PYVISION_DATASET_DIR_DEEPEYES=./rl_data/filtered_deepeyes_visual_search_parquet_files                                                                   #
                                                                                                                                                         #
 # If without mm hint in the input, the data path should be json file path.                                                                              #
                                                                                                                                                         #
-# TODO                                                                                                                                                  #
+PYVISION_IMAGE_DATASET_WO_MM_HINT=./rl_data/deepeyes/train_data_wo_mm_hint_full_path.json                                                               #
+PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.json                                                                    #                                                                                
                                                                                                                                                         #
 #########################################################################################################################################################
 
@@ -86,18 +116,20 @@ max_num_gen_batches=0                                                           
 rollout_num=8                                                                                    #
 interaction_budget=4                                                                             #
 max_turn=5                                                                                       #
-overbudget_masking=True                                                                          #
+overbudget_masking=False                                                                         #
 # NOTE: interaction_budget = max_turn - 1                                                        #
                                                                                                  #
-with_mm_hint=True                                                                                #
+with_mm_hint=False                                                                               #
+WORLD_SIZE=1                                                                                     #
 ##################################################################################################
 
 
-REF_MODEL_PATH=/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/sft_ckpts/qwen2_5vl-7b-1epoch_v2/full/sft
+REF_MODEL_PATH=/the/path/to/your/download/sft/ckpts
+
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
     +vs_debug=True \
-    data.train_files=[${PYVISION_DATASET_DIR_DEEPEYES}] \
+    data.train_files=[${PYVISION_IMAGE_DATASET_WO_MM_HINT},${PYVISION_VIDEO_DATASET_WO_MM_HINT}] \
     data.train_batch_size=64 \
     data.max_prompt_length=32000 \
     data.max_response_length=20480 \
@@ -149,7 +181,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=${WORLD_SIZE} \
     trainer.save_freq=10 \
-    trainer.test_freq=10000 \
+    trainer.test_freq=0 \
     trainer.project_name=${PROJECT_NAME} \
     trainer.experiment_name=${EXPERIMENT_NAME} \
     trainer.default_local_dir=${SAVE_CHECKPOINT_DIR}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
