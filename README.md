@@ -92,6 +92,7 @@ export TMPDIR="$HOME/tmp/ray"
 
 ROLLOUT_SAVE_DIR_PATH=./rollouts
 FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
+export LLM_AS_A_JUDGE_CONFIG_PATH=./configs/llm_as_a_judge.json
 
 
 ####################################################### Training Data Path Parameter ####################################################################

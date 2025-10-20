@@ -14,7 +14,7 @@
 # from . import gsm8k, math, prime_math, prime_code
 import torch
 
-def _default_compute_score(data_source, solution_str, ground_truth, extra_info=None):
+def _default_compute_score(data_source, solution_str, ground_truth, extra_info=None, llm_as_a_judge_config=None):
     # print(f"###################################### data_source: {data_source}")
     if data_source == "openai/gsm8k":
         from . import gsm8k
@@ -66,11 +66,11 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         from verl.utils.reward_score import vl_agent
         # print(f"################################## import the vl_agent successfully.")
         # from . import vl_agent
-        res = vl_agent.compute_score(solution_str, ground_truth, extra_info)
+        res = vl_agent.compute_score(solution_str, ground_truth, extra_info, llm_as_a_judge_config)
         # print(f"############################# reward result: {res}")
 
     elif data_source in ['vsi_numerical'] or data_source.endswith('_rule_verifiable'):
-        from . import rule_match_verify_mra
+        from . import rule_match_verify
         res = rule_match_verify.compute_score_rule_mra(solution_str, ground_truth)
 
     elif data_source in ['geoguessr']:

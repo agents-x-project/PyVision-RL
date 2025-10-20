@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from collections import defaultdict
+import os
+import json
 
 import torch
 
@@ -21,6 +23,9 @@ from verl.utils.reward_score import _default_compute_score
 
 import json
 import datetime
+
+LLM_AS_A_JUDGE_CONFIG_PATH = os.getenv("LLM_AS_A_JUDGE_CONFIG_PATH")
+print(f"llm as a judge config path is : {LLM_AS_A_JUDGE_CONFIG_PATH}")
 
 class NaiveRewardManager:
     """The reward manager."""
@@ -32,6 +37,11 @@ class NaiveRewardManager:
         self.reward_fn_key = reward_fn_key
 
         self.step_cnt = 0
+
+        self.llm_as_a_judge_config = json.load(open(LLM_AS_A_JUDGE_CONFIG_PATH, "r"))
+        self.llm_as_a_judge_base_url = self.llm_as_a_judge_config['base_url']
+        self.llm_as_a_judge_model_name = self.llm_as_a_judge_config['model_name']
+
 
     def __call__(self, data: DataProto, return_dict=False):
         """We will expand this function gradually based on the available datasets"""
@@ -92,6 +102,7 @@ class NaiveRewardManager:
                 solution_str=response_str,
                 ground_truth=ground_truth,
                 extra_info=extra_info,
+                llm_as_a_judge_config=self.llm_as_a_judge_config
             )
 
             # print(f"#################### score: {score}")

@@ -6,24 +6,24 @@ import os
 
 from math_verify import parse, verify
 
-openai_api_key = "EMPTY"
-os.environ['LLM_AS_A_JUDGE_BASE']='http://10.140.66.34:18901/v1'
-openai_api_base_list = [
-    os.environ.get("LLM_AS_A_JUDGE_BASE"),
-]
-os.environ['NO_PROXY_IP'] = '10.140.66.34:18901'
-os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
+# openai_api_key = "EMPTY"
+# os.environ['LLM_AS_A_JUDGE_BASE']='http://10.140.66.34:18901/v1'
+# openai_api_base_list = [
+#     os.environ.get("LLM_AS_A_JUDGE_BASE"),
+# ]
+# os.environ['NO_PROXY_IP'] = '10.140.66.34:18901'
+# os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
 
-client_list = []
-for api_base in openai_api_base_list:
-    client = OpenAI(
-        api_key=openai_api_key,
-        base_url=api_base,
-    )
-    client_list.append(client)
-model_name_list = []
-for client in client_list:
-    model_name_list = ['judge']
+# client_list = []
+# for api_base in openai_api_base_list:
+#     client = OpenAI(
+#         api_key=openai_api_key,
+#         base_url=api_base,
+#     )
+#     client_list.append(client)
+# model_name_list = []
+# for client in client_list:
+#     model_name_list = ['judge']
 
 
 
@@ -186,7 +186,7 @@ def extract_answer(text):
     return None
 
 
-def compute_score(predict_str: str, ground_truth: str, extra_info=None):
+def compute_score(predict_str: str, ground_truth: str, extra_info=None, llm_as_a_judge_config=None):
     os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
     is_format_error = False
     # predict_str = "<think>" + predict_str
@@ -223,9 +223,15 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None):
     question_text = extra_info['question']
     full_prompt = get_prompt(answer_text, ground_truth, question_text)
 
-    client_idx = random.randint(0, len(client_list) - 1)
-    client = client_list[client_idx]
-    model_name = model_name_list[client_idx]
+    client = OpenAI(
+        api_key=llm_as_a_judge_config['api_key'],
+        base_url=llm_as_a_judge_config['base_url'],
+    )
+    model_name = llm_as_a_judge_config['model_name']
+
+    # client_idx = random.randint(0, len(client_list) - 1)
+    # client = client_list[client_idx]
+    # model_name = model_name_list[client_idx]
 
     # print(f"############################### begin to utilize the client.")
     os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
