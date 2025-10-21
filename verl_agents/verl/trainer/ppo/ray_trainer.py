@@ -56,6 +56,7 @@ from verl.utils.dataset.rl_dataset_wo_mm_hint import RLHF_wo_mm_hint_Dataset
 from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
+from verl.trainer.ppo.filter_fn_utils import rollout_filtering_function
 
 from verl.trainer.ppo.metric_utils import compute_agent_metrics
 
@@ -951,6 +952,7 @@ class RayPPOTrainer:
 #################################################################################################################
         batch = None
         num_prompt_in_batch = 0
+        num_rollout_in_batch = 0
         num_gen_batches = 0
 
         the_first_new_batch = None
@@ -1098,56 +1100,62 @@ class RayPPOTrainer:
                         batch = new_batch
                     else:  # NOTE: When prompts after filtering is less than train batch size,
                         # we skip to the next generation batch
-                        metric_name = self.config.algorithm.filter_groups.metric
-                        if metric_name == "seq_final_reward":
-                            # Turn to numpy for easier filtering
-                            new_batch.non_tensor_batch["seq_final_reward"] = (
-                                new_batch.batch["token_level_rewards"].sum(dim=-1).numpy()
-                            )
-                        elif metric_name == "seq_reward":
-                            new_batch.non_tensor_batch["seq_reward"] = (
-                                new_batch.batch["token_level_scores"].sum(dim=-1).numpy()
-                            )
+                        metric_name_list = self.config.algorithm.filter_groups.metric.split("|", -1)
+                        new_batch = rollout_filtering_function(new_batch, metric_name_list)
+#                         if metric_name == "seq_final_reward":
+#                             # Turn to numpy for easier filtering
+#                             new_batch.non_tensor_batch["seq_final_reward"] = (
+#                                 new_batch.batch["token_level_rewards"].sum(dim=-1).numpy()
+#                             )
+#                         elif metric_name == "seq_reward":
+#                             new_batch.non_tensor_batch["seq_reward"] = (
+#                                 new_batch.batch["token_level_scores"].sum(dim=-1).numpy()
+#                             )
 
-                        # Collect the sequence reward for each trajectory
-                        prompt_uid2metric_vals = defaultdict(list)
-                        for uid, metric_val in zip(
-                            new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch[metric_name], strict=True
-                        ):
-##################################################################################################################
-                            # if metric_val == 0.0:
-                            #     metric_val = 0.0
-                            # elif metric_val >= 1.0:
-                            #     metric_val = 1.0
-##################################################################################################################
-                            prompt_uid2metric_vals[uid].append(metric_val)
+#                         # Collect the sequence reward for each trajectory
+#                         prompt_uid2metric_vals = defaultdict(list)
+#                         for uid, metric_val in zip(
+#                             new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch[metric_name], strict=True
+#                         ):
+# ##################################################################################################################
+#                             # if metric_val == 0.0:
+#                             #     metric_val = 0.0
+#                             # elif metric_val >= 1.0:
+#                             #     metric_val = 1.0
+# ##################################################################################################################
+#                             prompt_uid2metric_vals[uid].append(metric_val)
 
-                        prompt_uid2metric_std = {}
-                        for prompt_uid, metric_vals in prompt_uid2metric_vals.items():
-                            prompt_uid2metric_std[prompt_uid] = np.std(metric_vals)
+#                         prompt_uid2metric_std = {}
+#                         for prompt_uid, metric_vals in prompt_uid2metric_vals.items():
+#                             prompt_uid2metric_std[prompt_uid] = np.std(metric_vals)
 
-                        kept_prompt_uids = [
-                            uid
-                            for uid, std in prompt_uid2metric_std.items()
-                            if std > 0 or len(prompt_uid2metric_vals[uid]) == 1
-                        ]
-                        num_prompt_in_batch += len(kept_prompt_uids)
+#                         kept_prompt_uids = [
+#                             uid
+#                             for uid, std in prompt_uid2metric_std.items()
+#                             if std > 0 or len(prompt_uid2metric_vals[uid]) == 1
+#                         ]
+#                         num_prompt_in_batch += len(kept_prompt_uids)
 
-                        kept_traj_idxs = []
-                        for idx, traj_from_prompt_uid in enumerate(new_batch.non_tensor_batch["uid"]):
-                            if traj_from_prompt_uid in kept_prompt_uids:
-                                kept_traj_idxs.append(idx)
+#                         kept_traj_idxs = []
+#                         for idx, traj_from_prompt_uid in enumerate(new_batch.non_tensor_batch["uid"]):
+#                             if traj_from_prompt_uid in kept_prompt_uids:
+#                                 kept_traj_idxs.append(idx)
 
-                        new_batch = new_batch[kept_traj_idxs]
+#                         new_batch = new_batch[kept_traj_idxs]
+                        # num_prompt_in_batch += len(kept_prompt_uids)
+                        num_rollout_in_batch += len(new_batch)
                         batch = new_batch if batch is None else DataProto.concat([batch, new_batch])
 
                         prompt_bsz = self.config.data.train_batch_size
-                        if num_prompt_in_batch < prompt_bsz:
-                            print(f"{num_prompt_in_batch=} < {prompt_bsz=}")
+                        traj_bsz = self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n
+                        # if num_prompt_in_batch < prompt_bsz:
+                        #     print(f"{num_prompt_in_batch=} < {prompt_bsz=}")
+                        if num_rollout_in_batch < traj_bsz:
+                            print(f"{num_rollout_in_batch=} < {traj_bsz=}")
                             max_num_gen_batches = self.config.algorithm.filter_groups.max_num_gen_batches
                             if max_num_gen_batches <= 0 or num_gen_batches < max_num_gen_batches:
                                 print(f"{num_gen_batches=}. Keep generating...")
-                                progress_bar.update(1)
+                                # progress_bar.update(1)
                                 # self.gen_steps += 1
                                 continue
                             else:
@@ -1322,6 +1330,7 @@ class RayPPOTrainer:
                 metrics["train/num_gen_batches"] = num_gen_batches
                 batch = None
                 num_prompt_in_batch = 0
+                num_rollout_in_batch = 0
                 num_gen_batches = 0
 ###################################################################################################################
 

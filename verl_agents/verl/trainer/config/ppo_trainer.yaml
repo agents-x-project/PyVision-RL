@@ -214,7 +214,7 @@ algorithm:
     target_kl: 0.1
   filter_groups:
     enable: False # We try to avoid forgetting to set enable
-    metric: null # acc / score / seq_reward / seq_final_reward / ...
+    metric: null # acc / score / seq_reward / seq_final_reward / has_image / traj_length
     max_num_gen_batches: 0 # Non-positive values mean no upper limit
 
 trainer:

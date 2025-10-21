@@ -122,7 +122,7 @@ PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.
 
 #################################### Dynamic Sampling Parameter ##################################
 enable_filter_groups=True                                                                        #
-filter_groups_metric=seq_reward                                                                  #
+filter_groups_metric="'seq_reward'|'hasimage'|'trajlength'"                                                                #
 max_num_gen_batches=0                                                                            #
 ##################################################################################################
 
@@ -187,8 +187,8 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.max_turns=${max_turn} \
     actor_rollout_ref.rollout.agent.concurrent_workers=1 \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
-    +trainer.rollout_data_dir=${ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
-    +trainer.the_first_batch_rollout_data_dir=${FIRST_ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
+    trainer.rollout_data_dir=${ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
+    trainer.the_first_batch_rollout_data_dir=${FIRST_ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb','rl_logging_board'] \
     trainer.val_before_train=False \
