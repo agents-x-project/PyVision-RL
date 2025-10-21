@@ -163,3 +163,4 @@ verl_agents/logs/
 ## prevent overwrite
 .local/
 _temp/
+_train/

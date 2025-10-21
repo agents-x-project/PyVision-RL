@@ -1147,7 +1147,7 @@ class RayPPOTrainer:
                             max_num_gen_batches = self.config.algorithm.filter_groups.max_num_gen_batches
                             if max_num_gen_batches <= 0 or num_gen_batches < max_num_gen_batches:
                                 print(f"{num_gen_batches=}. Keep generating...")
-                                progress_bar.update(1)
+                                # progress_bar.update(1)    # Notes: Should not let progress += 1 unless a complete update is done
                                 # self.gen_steps += 1
                                 continue
                             else:
@@ -1238,6 +1238,7 @@ class RayPPOTrainer:
 ####################################################################################################################
                     # Log rollout generations if enabled
                     the_first_batch_rollout_data_dir = self.config.trainer.get("the_first_batch_rollout_data_dir", None)
+                    print(f"=== about to dump rollout data -> {the_first_batch_rollout_data_dir}")
                     the_first_new_batch_reward_extra_infos_dict: dict[str, list] = {}
 
                     for reward_extra_info_key in list(reward_extra_infos_dict.keys()):
