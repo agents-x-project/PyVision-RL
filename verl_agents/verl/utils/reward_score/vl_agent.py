@@ -187,7 +187,6 @@ def extract_answer(text):
 
 
 def compute_score(predict_str: str, ground_truth: str, extra_info=None, llm_as_a_judge_config=None):
-    os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
     is_format_error = False
     # predict_str = "<think>" + predict_str
     count_think_1 = predict_str.count("<think>")
@@ -234,7 +233,6 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None, llm_as_a
     # model_name = model_name_list[client_idx]
 
     # print(f"############################### begin to utilize the client.")
-    os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
     # print(f"############################### model name: {model_name}")
     # print(f"############################### full prompt: {full_prompt}")
     chat_response = client.chat.completions.create(
@@ -304,7 +302,6 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None, llm_as_a
 
 
 def compute_common_reasoning(predict_str: str, ground_truth: str, extra_info=None) -> float:
-    os.environ['no_proxy']=os.environ.get("NO_PROXY_IP")
     is_format_error = False
     # predict_str = "<think>" + predict_str
     count_think_1 = predict_str.count("<think>")
@@ -415,7 +412,6 @@ def generative_verify(query, ground_truth, model_answer):
 
 
 def compute_score_math(predict_str: str, ground_truth: str, extra_info=None) -> float:
-    os.environ['no_proxy']='10.140.60.144:18901'
     is_format_error = False
     # predict_str = "<think>" + predict_str
     count_think_1 = predict_str.count("<think>")

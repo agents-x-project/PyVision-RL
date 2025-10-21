@@ -101,6 +101,7 @@ PROJECT_NAME="pyvision-rl-v0"
 EXPERIMENT_NAME="pyvision-rl"
 export SAVE_CHECKPOINT_DIR=/the/path/to/save/the/rl/ckpts
 export TMPDIR="$HOME/tmp/ray"
+export WANDB_MODE=offline  # setup the wandb
 
 ROLLOUT_SAVE_DIR_PATH=./rollouts
 FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
