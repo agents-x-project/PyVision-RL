@@ -9,7 +9,7 @@ from enum import Enum
 from pprint import pprint
 from typing import Dict, Type
 
-def dynamic_sampling_fn(new_batch, **kwargs):
+def dynamic_sampling_fn(new_batch):
     # we skip to the next generation batch
     # metric_name = self.config.algorithm.filter_groups.metric
     # if metric_name == "seq_final_reward":
@@ -48,7 +48,7 @@ def dynamic_sampling_fn(new_batch, **kwargs):
 
     return new_batch
 
-def hasimage_filtering_fn(new_batch, **kwargs):
+def hasimage_filtering_fn(new_batch):
 
     kept_traj_idxs = []
     for idx, has_image in enumerate(new_batch.non_tensor_batch["hasimage"]):
@@ -59,7 +59,7 @@ def hasimage_filtering_fn(new_batch, **kwargs):
 
     return new_batch
 
-def trajlength_filtering_fn(new_batch, **kwargs):
+def trajlength_filtering_fn(new_batch):
 
     kept_traj_idxs = []
     for idx, trajlength in enumerate(new_batch.non_tensor_batch["trajlength"]):
@@ -73,11 +73,11 @@ def trajlength_filtering_fn(new_batch, **kwargs):
 def rollout_filtering_function(new_batch, metric_name_list):
 
     if "seq_reward" in metric_name_list:
-        new_batch = dynamic_sampling_fn(new_batch, **kwargs)
+        new_batch = dynamic_sampling_fn(new_batch)
     elif "hasimage" in metric_name_list:
-        new_batch = hasimage_filtering_fn(new_batch, **kwargs)
+        new_batch = hasimage_filtering_fn(new_batch)
     elif "trajlength" in metric_name_list:
-        new_batch = trajlength_filtering_fn(new_batch, **kwargs)
+        new_batch = trajlength_filtering_fn(new_batch)
 
     return new_batch
 
