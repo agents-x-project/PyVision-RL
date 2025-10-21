@@ -49,11 +49,6 @@ def dynamic_sampling_fn(new_batch, **kwargs):
     return new_batch
 
 def hasimage_filtering_fn(new_batch, **kwargs):
-    kept_prompt_uids = [
-        uid
-        for uid, std in prompt_uid2metric_std.items()
-        if std > 0 or len(prompt_uid2metric_vals[uid]) == 1
-    ]
 
     kept_traj_idxs = []
     for idx, has_image in enumerate(new_batch.non_tensor_batch["hasimage"]):
@@ -65,11 +60,6 @@ def hasimage_filtering_fn(new_batch, **kwargs):
     return new_batch
 
 def trajlength_filtering_fn(new_batch, **kwargs):
-    kept_prompt_uids = [
-        uid
-        for uid, std in prompt_uid2metric_std.items()
-        if std > 0 or len(prompt_uid2metric_vals[uid]) == 1
-    ]
 
     kept_traj_idxs = []
     for idx, trajlength in enumerate(new_batch.non_tensor_batch["trajlength"]):
