@@ -8,8 +8,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pprint import pprint
 from typing import Dict, Type
+import numpy as np
 
-def dynamic_sampling_fn(new_batch, **kwargs):
+def dynamic_sampling_fn(new_batch):
     # we skip to the next generation batch
     # metric_name = self.config.algorithm.filter_groups.metric
     # if metric_name == "seq_final_reward":
@@ -25,7 +26,7 @@ def dynamic_sampling_fn(new_batch, **kwargs):
     # Collect the sequence reward for each trajectory
     prompt_uid2metric_vals = defaultdict(list)
     for uid, metric_val in zip(
-        new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch[metric_name], strict=True
+        new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch["seq_reward"], strict=True
     ):
         prompt_uid2metric_vals[uid].append(metric_val)
 
@@ -48,7 +49,7 @@ def dynamic_sampling_fn(new_batch, **kwargs):
 
     return new_batch
 
-def hasimage_filtering_fn(new_batch, **kwargs):
+def hasimage_filtering_fn(new_batch):
 
     kept_traj_idxs = []
     for idx, has_image in enumerate(new_batch.non_tensor_batch["hasimage"]):
@@ -59,7 +60,7 @@ def hasimage_filtering_fn(new_batch, **kwargs):
 
     return new_batch
 
-def trajlength_filtering_fn(new_batch, **kwargs):
+def trajlength_filtering_fn(new_batch):
 
     kept_traj_idxs = []
     for idx, trajlength in enumerate(new_batch.non_tensor_batch["trajlength"]):
@@ -73,11 +74,11 @@ def trajlength_filtering_fn(new_batch, **kwargs):
 def rollout_filtering_function(new_batch, metric_name_list):
 
     if "seq_reward" in metric_name_list:
-        new_batch = dynamic_sampling_fn(new_batch, **kwargs)
+        new_batch = dynamic_sampling_fn(new_batch)
     elif "hasimage" in metric_name_list:
-        new_batch = hasimage_filtering_fn(new_batch, **kwargs)
+        new_batch = hasimage_filtering_fn(new_batch)
     elif "trajlength" in metric_name_list:
-        new_batch = trajlength_filtering_fn(new_batch, **kwargs)
+        new_batch = trajlength_filtering_fn(new_batch)
 
     return new_batch
 

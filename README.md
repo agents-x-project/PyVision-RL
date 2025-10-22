@@ -122,7 +122,7 @@ PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.
 
 #################################### Dynamic Sampling Parameter ##################################
 enable_filter_groups=True                                                                        #
-filter_groups_metric="'seq_reward'|'hasimage'|'trajlength'"                                                                #
+filter_groups_metric='seq_reward,hasimage,trajlength'                                                                #
 max_num_gen_batches=0                                                                            #
 ##################################################################################################
 
@@ -165,7 +165,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=1 \
     algorithm.filter_groups.enable=${enable_filter_groups} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
-    algorithm.filter_groups.metric=${filter_groups_metric} \
+    algorithm.filter_groups.metric=[${filter_groups_metric}] \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \

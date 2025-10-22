@@ -1100,7 +1100,7 @@ class RayPPOTrainer:
                         batch = new_batch
                     else:  # NOTE: When prompts after filtering is less than train batch size,
                         # we skip to the next generation batch
-                        metric_name_list = self.config.algorithm.filter_groups.metric.split("|", -1)
+                        metric_name_list = self.config.algorithm.filter_groups.metric
                         new_batch = rollout_filtering_function(new_batch, metric_name_list)
 #                         if metric_name == "seq_final_reward":
 #                             # Turn to numpy for easier filtering
