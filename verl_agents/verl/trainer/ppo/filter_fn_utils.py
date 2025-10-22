@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pprint import pprint
 from typing import Dict, Type
+import numpy as np
 
 def dynamic_sampling_fn(new_batch):
     # we skip to the next generation batch
@@ -25,7 +26,7 @@ def dynamic_sampling_fn(new_batch):
     # Collect the sequence reward for each trajectory
     prompt_uid2metric_vals = defaultdict(list)
     for uid, metric_val in zip(
-        new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch[metric_name], strict=True
+        new_batch.non_tensor_batch["uid"], new_batch.non_tensor_batch["seq_reward"], strict=True
     ):
         prompt_uid2metric_vals[uid].append(metric_val)
 
