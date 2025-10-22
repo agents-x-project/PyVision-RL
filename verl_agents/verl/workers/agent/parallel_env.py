@@ -15,6 +15,17 @@ from verl.utils.dataset.vision_utils import process_image, process_raw_image, pr
 from verl.utils.torch_functional import pad_2d_list_to_length
 from verl.workers.agent.tool_envs import ToolBase
 
+import enum
+
+class EndReasonEnum(enum.IntEnum):
+    """
+    For statistics
+    """
+    ON_GONIG = 0
+    DONE = 1
+    OVER_LENGTH = 2
+    EXCEED_MAX_TURNS = 3
+
 def _strip_system_block(text: str) -> str:
     """
     删除 text 中第一个 <|im_start|>system ... <|im_end|> 区块（含标签），
@@ -161,6 +172,8 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     hasimage_list = []
     trajlength_list = []
 
+    end_reason_list = []    # Notes: for statistics use
+
     env = ParallelEnv(config.agent, tokenizer, processor)
     env.reset(prompts, vllm_inputs, n=sampling_params.n)
 
@@ -180,6 +193,8 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             tool_call_cnt_list.append(0)
             hasimage_list.append(False)
             trajlength_list.append(0)
+
+            end_reason_list.append(EndReasonEnum.ON_GONIG)
 
     pg = vllm_ps.get_tp_group()
     max_total_length = config.prompt_length + config.response_length
@@ -226,10 +241,16 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             # Ensure the last token is not obs
             if running_states[idx].shape[-1] >= max_total_length or len(vllm_input_list[idx]['prompt_token_ids']) >= max_total_length:
                 active_mask[idx] = False
+                end_reason_list[idx] = EndReasonEnum.OVER_LENGTH
                 continue
 
-            if done or step == config.agent.max_turns - 1:
+            if done:
                 active_mask[idx] = False
+                end_reason_list[idx] = EndReasonEnum.DONE
+                continue
+            if step == config.agent.max_turns - 1:
+                active_mask[idx] = False
+                end_reason_list[idx] = EndReasonEnum.EXCEED_MAX_TURNS
                 continue
             tool_call_cnt_list[idx] += 1
 
@@ -273,6 +294,8 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
             if running_states[idx].shape[-1] >= max_total_length or len(vllm_input_list[idx]['prompt_token_ids']) >= max_total_length:
                 active_mask[idx] = False
+
+    print(f"[DEBUG end reasons]", ", ".join(f"{member.name}: {end_reason_list.count(member)}" for member in EndReasonEnum))
 
     env.close()
     target_device = prompts.batch['input_ids'].device
