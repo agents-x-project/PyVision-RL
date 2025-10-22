@@ -977,7 +977,7 @@ class RayPPOTrainer:
                 else:
                     gen_batch = new_batch.pop(
                         batch_keys=["input_ids", "attention_mask", "position_ids"],
-                        non_tensor_batch_keys=["raw_prompt_ids"],
+                        non_tensor_batch_keys=["raw_prompt_ids", 'origin_multi_modal_data'],
                     )
 
                 if 'raw_prompt' in new_batch.non_tensor_batch.keys():
@@ -1155,7 +1155,7 @@ class RayPPOTrainer:
                             max_num_gen_batches = self.config.algorithm.filter_groups.max_num_gen_batches
                             if max_num_gen_batches <= 0 or num_gen_batches < max_num_gen_batches:
                                 print(f"{num_gen_batches=}. Keep generating...")
-                                # progress_bar.update(1)
+                                # progress_bar.update(1)    # Notes: Should not let progress += 1 unless a complete update is done
                                 # self.gen_steps += 1
                                 continue
                             else:
