@@ -611,6 +611,9 @@ class ActorRolloutRefWorker(Worker):
         data.meta_info["max_token_len"] = self.config.rollout.log_prob_max_token_len_per_gpu
         data.meta_info["use_dynamic_bsz"] = self.config.rollout.log_prob_use_dynamic_bsz
         data.meta_info["temperature"] = self.config.rollout.temperature
+        
+        # print(f"[DATA INFO]: Before inputting the data to self.actor.computer_log_prob, non_tensor dict keys {data.non_tensors.keys()}")
+        # print(f"[DATA INFO]: Before inputting the data to self.actor.computer_log_prob, tensor dict keys {data.tensors.keys()}")
         # perform recompute log_prob
         with self.ulysses_sharding_manager:
             data = self.ulysses_sharding_manager.preprocess_data(data)

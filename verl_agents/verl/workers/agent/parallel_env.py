@@ -210,6 +210,8 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             sampling_params=agent_sampling_params,
             use_tqdm=False
         )
+        
+        assert len(actions) == len(active_vllm_inputs)
 
         if pg.is_first_rank:
             obs_results = env.step(active_indices, actions)
@@ -309,22 +311,64 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     running_attn_masks = [mask[: max_total_length] for mask in running_attn_masks]
     attn_mask_tensor = pad_2d_list_to_length(running_attn_masks, 0, max_total_length).to(target_device)
 
-    if processor is not None and processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor":
+    print(f"################# processor name: {processor.image_processor.__class__.__name__} ###########################")
+    # TODO: Qwen2VLImageProcessorFast is the default option, but is it good?
+    if processor is not None and (processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor" or processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessorFast"):
         # For Qwen-VL: (n*bs, 3, seq_len)
-        position_ids_list = [
-            get_rope_index(
+        # position_ids_list = [
+        #     get_rope_index(
+        #         processor,
+        #         input_ids=state_tensor[i, :],
+        #         image_grid_thw=mm_input_list[i].get("image_grid_thw", None),
+        #         video_grid_thw=mm_input_list[i].get("video_grid_thw", None),
+        #         second_per_grid_ts=mm_input_list[i].get("second_per_grid_ts", None),
+        #         attention_mask=attn_mask_tensor[i, :],
+        #     ) for i in range(batch_size * sampling_params.n)
+        # ]
+        # position_ids_tensor = torch.stack(position_ids_list, dim=0)
+
+        position_ids_list = []
+
+        for i in range(batch_size * sampling_params.n):
+            vision_position_ids = get_rope_index(
                 processor,
                 input_ids=state_tensor[i, :],
                 image_grid_thw=mm_input_list[i].get("image_grid_thw", None),
                 video_grid_thw=mm_input_list[i].get("video_grid_thw", None),
                 second_per_grid_ts=mm_input_list[i].get("second_per_grid_ts", None),
                 attention_mask=attn_mask_tensor[i, :],
-            ) for i in range(batch_size * sampling_params.n)
-        ]
-        position_ids_tensor = torch.stack(position_ids_list, dim=0)
+            )    
+
+            device = vision_position_ids.device
+            valid_mask = attn_mask_tensor[i, :].bool()
+            text_position_ids = torch.ones((1, len(state_tensor[i, :])), dtype=torch.long, device=device)
+            text_position_ids[0, valid_mask] = torch.arange(valid_mask.sum().item(), device=device)
+            position_ids = [torch.cat((text_position_ids, vision_position_ids), dim=0)]  # (1, 4, seq_length)
+
+            position_ids_list += position_ids
+
+        position_ids_tensor = torch.stack(position_ids_list, dim=0)      
+
+
+        print("###################### I am generating 3D ROPE position ids ......")
+        print(f"##################### shape of position_ids_list: {position_ids_tensor.shape} maybe this is vision position_ids. #####################3")
+        # vision_position_ids = get_rope_index(
+        #     self.processor,
+        #     input_ids=input_ids[0],
+        #     image_grid_thw=model_inputs.get("image_grid_thw"),
+        #     video_grid_thw=model_inputs.get("video_grid_thw"),
+        #     second_per_grid_ts=model_inputs.get("second_per_grid_ts"),
+        #     attention_mask=attention_mask[0],
+        # )  # (3, seq_length)
+        # valid_mask = attention_mask[0].bool()
+        # text_position_ids = torch.ones((1, len(input_ids[0])), dtype=torch.long)
+        # text_position_ids[0, valid_mask] = torch.arange(valid_mask.sum().item())
+        # position_ids = [torch.cat((text_position_ids, vision_position_ids), dim=0)]  # (1, 4, seq_length)
     else:
         # For LM: (n*bs, seq_len)
+        print("###################### I am generating 1D ROPE text position ids ......")
         position_ids_tensor = compute_position_id_with_mask(attn_mask_tensor)
+        print(f"##################### shape of position_ids_list: {position_ids_tensor.shape} maybe this is pure text position_ids. #####################3")
 
     reward_tensor_list = [reward[: max_total_length] for reward in reward_tensor_list]
     reward_tensor = pad_2d_list_to_length(reward_tensor_list, 0.0, max_total_length).to(target_device)

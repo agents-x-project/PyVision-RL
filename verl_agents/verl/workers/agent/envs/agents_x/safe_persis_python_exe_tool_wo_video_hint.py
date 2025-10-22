@@ -394,7 +394,7 @@ class MultiModalPythonTool_wo_Video_Hint(ToolBase):
         self.chatml_history = raw_prompt
         self.multi_modal_data = multi_modal_data
         self.origin_multi_modal_data = origin_multi_modal_data
-        self._figures_count = 1
+        self._figures_count = 0
         
         # 重置持久化工作进程的状态
         if self.persistent_worker:

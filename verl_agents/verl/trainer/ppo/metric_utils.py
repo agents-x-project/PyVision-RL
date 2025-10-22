@@ -81,14 +81,14 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
 
     # 步骤3：按 uid 分组并 reshape
     _, inverse_indices = np.unique(uid_list, return_inverse=True)
-    reward_reformed = np.empty((unique_uid_count, repeat_count))
+    # reward_reformed = np.empty((unique_uid_count, repeat_count))
 
     acc_per_group_list = []
 
     for i in range(unique_uid_count):
         mask = (inverse_indices == i)
         sequence_score_one_group = sequence_score[mask]
-        reward_reformed[i] = sequence_score_one_group
+        # reward_reformed[i] = sequence_score_one_group
         correct_num_one_group = [1 if _ > 0 else 0 for _ in sequence_score_one_group]
         acc_one_group = sum(correct_num_one_group) / len(sequence_score_one_group)
         acc_per_group_list.append(acc_one_group)
