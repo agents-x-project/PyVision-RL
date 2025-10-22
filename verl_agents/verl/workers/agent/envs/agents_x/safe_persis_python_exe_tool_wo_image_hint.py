@@ -223,6 +223,7 @@ class SafeImageRuntime:
                             # init_captured_figures.append(base64.b64encode(
                             #     BytesIO(image.tobytes()).getvalue()).decode('utf-8'))
                             image_var_idx += 1
+                            print("############################# image hint has been injected into the Python runtime. #################################")
 
             image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)
@@ -252,6 +253,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
         super().__init__(name=self.name)
         self.chatml_history = []
         self.multi_modal_data = None
+        self.origin_multi_modal_data = None
         self.use_process_isolation = True
         self.persistent_worker = None  # 持久化的工作进程
         self._figures_count = 0  # 跟踪图像数量
@@ -288,7 +290,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
             return obs, 0.0, False, {"error": error_msg}
         
         try:
-            messages = self._convert_to_messages(self.multi_modal_data)
+            messages = self._convert_to_messages_wo_image_hint(self.origin_multi_modal_data)
             
             if self.use_process_isolation:
                 # 确保工作进程存在
@@ -378,7 +380,8 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
     def reset(self, raw_prompt, multi_modal_data, origin_multi_modal_data, **kwargs):
         """Reset tool state"""
         self.chatml_history = raw_prompt
-        self.multi_modal_data = origin_multi_modal_data
+        self.multi_modal_data = multi_modal_data
+        self.origin_multi_modal_data = origin_multi_modal_data
         self._figures_count = 1
         
         # 重置持久化工作进程的状态
@@ -413,9 +416,9 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
         
         return messages
 
-    def _convert_to_messages_wo_image_hint(self, multi_modal_data):
+    def _convert_to_messages_wo_image_hint(self, origin_multi_modal_data):
         """Convert multi_modal_data to messages format"""
-        if not multi_modal_data or 'image' not in multi_modal_data:
+        if not origin_multi_modal_data or 'image' not in origin_multi_modal_data:
             return []
         
         messages = [{
@@ -423,7 +426,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
             "content": []
         }]
         
-        for i, img in enumerate(multi_modal_data['image']):
+        for i, img in enumerate(origin_multi_modal_data['image']):
             buffered = io.BytesIO()
             img.save(buffered, format="PNG")
             img_base64 = base64.b64encode(buffered.getvalue()).decode('utf-8')
