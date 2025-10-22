@@ -168,15 +168,15 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
             raw_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             multi_modal_data = {}
-            origin_multi_modal_data = {
-                "image": None,
-                "video": None
-            }
+            # origin_multi_modal_data = {
+            #     "image": None,
+            #     "video": None
+            # }
 
             # multi_modal_data['image'] = []
             # origin_multi_modal_data['image'] = []
             # origin_multi_modal_data['video'] = []
-            # origin_multi_modal_data = []
+            origin_multi_modal_data = {}
 
             images = None
             videos = None
@@ -188,7 +188,8 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
                     origin_images = [process_raw_image(image)]
                     images = [process_image(image)]
                     # multi_modal_data["image"] = None
-                    origin_multi_modal_data["image"] = origin_images
+                    # origin_multi_modal_data["image"] = origin_images
+                    origin_multi_modal_data = {"image": origin_images}
                     # multi_modal_hint['mm_hint_content'] = origin_images
                     # multi_modal_hint['mm_hint_type'] = "image"
 
@@ -196,7 +197,8 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
                     # videos = [process_video_pyvision(mm_hint_path)]
                     videos = [mm_hint_path]
                     # multi_modal_data["video"] = None
-                    origin_multi_modal_data["video"] = videos
+                    # origin_multi_modal_data["video"] = videos
+                    origin_multi_modal_data = {"video": videos}
                     # multi_modal_hint['mm_hint_content'] = videos
                     # multi_modal_hint['mm_hint_type'] = "video"
 
