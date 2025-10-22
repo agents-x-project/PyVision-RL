@@ -27,7 +27,7 @@ see https://github.com/Visual-Agent/DeepEyes
 ####################################################
 
 # Notes:
-# 1. transformers==4.53.2
+# 1. transformers==4.54.0
 # 2. vllm==0.9.1
 ```
 
