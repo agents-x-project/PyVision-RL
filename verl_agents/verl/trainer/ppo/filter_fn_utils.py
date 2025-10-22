@@ -78,9 +78,7 @@ def trajlength_filtering_fn(new_batch):
     return new_batch
 
 def rollout_filtering_function(new_batch, metric_name_list):
-
-    print(f"############################### metric_name_list: {metric_name_list} #############################")
-
+    print(f"[INFO batch filter] rolling out filtering on metrics: {metric_name_list}")
     if "seq_reward" in metric_name_list:
         new_batch = dynamic_sampling_fn(new_batch)
     if "hasimage" in metric_name_list:

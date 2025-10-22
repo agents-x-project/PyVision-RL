@@ -250,10 +250,12 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 active_mask[idx] = False
                 end_reason_list[idx] = EndReasonEnum.DONE
                 continue
+
             if step == config.agent.max_turns - 1:
                 active_mask[idx] = False
                 end_reason_list[idx] = EndReasonEnum.EXCEED_MAX_TURNS
                 continue
+            
             tool_call_cnt_list[idx] += 1
 
             # process obs tokens and images
@@ -263,9 +265,11 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
                 if len(vllm_input_list[idx]['prompt_token_ids']) + len(obs_token_ids_vllm) >= max_total_length:
                     active_mask[idx] = False
+                    end_reason_list[idx] = EndReasonEnum.OVER_LENGTH
                     continue
                 if running_states[idx].shape[-1] + len(obs_token_ids_model) >= max_total_length:
                     active_mask[idx] = False
+                    end_reason_list[idx] = EndReasonEnum.OVER_LENGTH
                     continue
 
                 vllm_input_list[idx]['prompt_token_ids'] = _concat_vllm_input(
@@ -296,6 +300,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
             if running_states[idx].shape[-1] >= max_total_length or len(vllm_input_list[idx]['prompt_token_ids']) >= max_total_length:
                 active_mask[idx] = False
+                end_reason_list[idx] = EndReasonEnum.OVER_LENGTH
 
     print(f"[DEBUG end reasons]", ", ".join(f"{member.name}: {end_reason_list.count(member)}" for member in EndReasonEnum))
 
