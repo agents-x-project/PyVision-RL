@@ -34,7 +34,7 @@ from verl.utils.seqlen_balancing import get_reverse_idx, rearrange_micro_batches
 from verl.utils.torch_functional import logprobs_from_logits
 from verl.utils.ulysses import gather_outpus_and_unpad, ulysses_pad_and_slice_inputs
 from verl.workers.actor import BasePPOActor
-from verl.trainer.ppo.filter_fn_utils import max_interaction_budget_filter_fn
+# from verl.trainer.ppo.filter_fn_utils import max_interaction_budget_filter_fn
 
 __all__ = ["DataParallelPPOActor"]
 

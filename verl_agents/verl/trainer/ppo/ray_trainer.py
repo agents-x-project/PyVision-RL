@@ -1155,11 +1155,7 @@ class RayPPOTrainer:
                             max_num_gen_batches = self.config.algorithm.filter_groups.max_num_gen_batches
                             if max_num_gen_batches <= 0 or num_gen_batches < max_num_gen_batches:
                                 print(f"{num_gen_batches=}. Keep generating...")
-<<<<<<< HEAD
                                 # progress_bar.update(1)
-=======
-                                # progress_bar.update(1)    # Notes: Should not let progress += 1 unless a complete update is done
->>>>>>> 8c968a3a4c9c6d24602f4f43348ebf3ddc13da93
                                 # self.gen_steps += 1
                                 continue
                             else:
