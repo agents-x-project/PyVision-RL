@@ -45,6 +45,8 @@ def dynamic_sampling_fn(new_batch):
         if traj_from_prompt_uid in kept_prompt_uids:
             kept_traj_idxs.append(idx)
 
+    print(f"[INFO batch filter] dynamic sampling std=0 filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+
     new_batch = new_batch[kept_traj_idxs]
 
     return new_batch
@@ -56,6 +58,8 @@ def hasimage_filtering_fn(new_batch):
         if has_image:
             kept_traj_idxs.append(idx)
 
+    print(f"[INFO batch filter] has image filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+
     new_batch = new_batch[kept_traj_idxs]
 
     return new_batch
@@ -66,6 +70,8 @@ def trajlength_filtering_fn(new_batch):
     for idx, trajlength in enumerate(new_batch.non_tensor_batch["trajlength"]):
         if trajlength <= 130000:
             kept_traj_idxs.append(idx)
+
+    print(f"[INFO batch filter] traj length filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
 
     new_batch = new_batch[kept_traj_idxs]
 
