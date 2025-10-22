@@ -147,6 +147,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
         multi_modal_inputs = multi_modal_inputs.tolist()
     else:
         multi_modal_inputs = [{}] * len(vllm_inputs)
+        print("############################# No multi_modal_inputs in the batch, reinit ###########################")
 
     batch_size = len(vllm_inputs)
     vllm_input_list = []
@@ -317,6 +318,9 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     #     },
     #     non_tensors={"multi_modal_inputs": mm_input_list} if processor is not None else None
     # )
+
+    print(f"################## len of mm_input_list: {len(mm_input_list)} #########################")
+    print(f"################## keys of mm_input_list: {mm_input_list[0].keys()} #########################")
 
     return DataProto.from_dict(
         tensors={
