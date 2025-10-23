@@ -10,6 +10,8 @@ from pprint import pprint
 from typing import Dict, Type
 import numpy as np
 
+from verl_agents.verl.workers.agent.parallel_env import EndReasonEnum
+
 def dynamic_sampling_fn(new_batch):
 
     new_batch.non_tensor_batch["seq_reward"] = (
@@ -54,9 +56,9 @@ def dynamic_sampling_fn(new_batch):
     new_batch = new_batch[kept_traj_idxs]
 
     filter_reason = {
-        "kept": kept_prompt_uids,
-        "mean_0": mean_0_traj_uids,
-        "mean_1": mean_1_traj_uids,
+        "dynamic_sampling:_kept": kept_prompt_uids,
+        "dynamic_sampling:std_0_mean_0": mean_0_traj_uids,
+        "dynamic_sampling:std_0_mean_1": mean_1_traj_uids,
     }
 
     return new_batch, filter_reason
@@ -64,55 +66,82 @@ def dynamic_sampling_fn(new_batch):
 def hasimage_filtering_fn(new_batch):
 
     kept_traj_idxs = []
+    hasimage_filter_reason = {
+        "hasimage:_kept": [],
+        "hasimage:no_image": [],
+    }
     for idx, has_image in enumerate(new_batch.non_tensor_batch["hasimage"]):
         if has_image:
             kept_traj_idxs.append(idx)
+            hasimage_filter_reason["hasimage:_kept"].append(idx)
+        else:
+            hasimage_filter_reason["hasimage:no_image"].append(idx)
 
     print(f"[INFO batch filter] has image filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
 
     new_batch = new_batch[kept_traj_idxs]
 
-    return new_batch
+    return new_batch, hasimage_filter_reason
 
-def trajlength_filtering_fn(new_batch):
+def trajlength_filtering_fn(new_batch, max_length=130000):
 
     kept_traj_idxs = []
+    trajlength_filter_reason = {
+        "trajlength:_kept": [],
+        f"trajlength:exceed_max_length_{max_length}": [],
+    }
     for idx, trajlength in enumerate(new_batch.non_tensor_batch["trajlength"]):
-        if trajlength <= 130000:
+        if trajlength <= max_length:
             kept_traj_idxs.append(idx)
+            trajlength_filter_reason["trajlength:_kept"].append(idx)
+        else:
+            trajlength_filter_reason[f"trajlength:exceed_max_length_{max_length}"].append(idx)
 
     print(f"[INFO batch filter] traj length filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
 
     new_batch = new_batch[kept_traj_idxs]
 
-    return new_batch
+    return new_batch, trajlength_filter_reason
 
-def end_reason_filtering_fn(new_batch):
+def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
+
+    end_reason_filter_reserve_names = [EndReasonEnum.DONE.name]
+
+    if extra_filtering_config is not None and "end_reason_filter_reserve_names" in extra_filtering_config:
+        end_reason_filter_reserve_names = extra_filtering_config["end_reason_filter_reserve_names"]
+
     kept_traj_idxs = []
+    end_reason_filter_reason = {}
+
     for idx, end_reason in enumerate(new_batch.non_tensor_batch["end_reason"]):
-        if end_reason == 1:     # 1 means DONE in EndReasonEnum in verl_agents/verl/workers/agent/parallel_env.py
+        if end_reason.name in end_reason_filter_reserve_names:
             kept_traj_idxs.append(idx)
+        
+        if end_reason.name not in end_reason_filter_reason:
+            end_reason_filter_reason[f"end_reason:{end_reason.name}"] = []
+
+        end_reason_filter_reason[f"end_reason:{end_reason.name}"].append(idx)
 
     print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
 
     new_batch = new_batch[kept_traj_idxs]
 
-    return new_batch
+    return new_batch, end_reason_filter_reason
 
-def rollout_filtering_function(new_batch, metric_name_list):
+def rollout_filtering_function(new_batch, metric_name_list, extra_filtering_config=None):
     print(f"[INFO batch filter] rolling out filtering on metrics: {metric_name_list}")
 
     if "seq_reward" in metric_name_list:
         new_batch, dynamic_sampling_filter_reason = dynamic_sampling_fn(new_batch)
 
     if "hasimage" in metric_name_list:
-        new_batch = hasimage_filtering_fn(new_batch)
+        new_batch, hasimage_filter_reason = hasimage_filtering_fn(new_batch)
 
     if "trajlength" in metric_name_list:
-        new_batch = trajlength_filtering_fn(new_batch)
+        new_batch, trajlength_filter_reason = trajlength_filtering_fn(new_batch)
 
     if "end_reason" in metric_name_list:
-        new_batch = end_reason_filtering_fn(new_batch)
+        new_batch, end_reason_filter_reason = end_reason_filtering_fn(new_batch, extra_filtering_config)
 
     return new_batch
 

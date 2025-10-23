@@ -199,8 +199,6 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
 gen_batch_size=64   
 max_video_gen_batch_size=32     // 32 might cause OOM in longvila
 gen_batch_size_align_method="up_resample_image"     // up_resample_image: resample prompts from dataloader to fill discarded prompts with video
-
-filter_groups_metric="${filter_groups_metric},end_reason"
 ```
 
 ```bash
@@ -209,8 +207,24 @@ filter_groups_metric="${filter_groups_metric},end_reason"
     +data.gen_batch_size_align_method=${gen_batch_size_align_method} \  
 ```
 
+end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`
 
+```bash
+    filter_groups_metric="${filter_groups_metric},end_reason"
+```
 
+```bash
+    +algorithm.filter_groups.end_reason_filter_reserve_names="[DONE,EXCEED_MAX_IMAGE_NUM_32]" \
+```
+
+you can choose from:
+```
+ON_GONIG
+DONE
+OVER_LENGTH
+EXCEED_MAX_TURNS
+EXCEED_MAX_IMAGE_NUM_32
+```
 
 #### Single Node
 ```bash

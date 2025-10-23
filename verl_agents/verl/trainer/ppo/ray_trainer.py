@@ -1403,7 +1403,10 @@ class RayPPOTrainer:
                         # Apply filtering if enabled
                         if self.config.algorithm.filter_groups.enable:
                             metric_name_list = self.config.algorithm.filter_groups.metric
-                            filtered_batch = rollout_filtering_function(new_batch, metric_name_list)
+                            extra_filtering_config = {
+                                "end_reason_filter_reserve_names": self.config.algorithm.filter_groups.get("end_reason_filter_reserve_names", None),
+                            }
+                            filtered_batch = rollout_filtering_function(new_batch, metric_name_list, extra_filtering_config)
                             filtered_count = len(filtered_batch)
                             print(f"Filtered {len(new_batch)} -> {filtered_count} rollouts")
                         else:
