@@ -569,7 +569,7 @@ class RayPPOTrainer:
             f.write("\n".join(lines) + "\n")
 
         print(f"Dumped generations to {filename}")
-    
+
     def _dump_batch_generations(self, batch: DataProto, dump_path: str):
         """
         Helper method to dump a batch's generations to disk.
@@ -944,6 +944,79 @@ class RayPPOTrainer:
         )
         metrics.update(global_balance_stats)
 
+    def _filter_video_samples_in_dict(self, batch_dict: dict, max_video_samples: int):
+        """
+        Filter video samples in a batch dictionary before generation to control GPU memory.
+        
+        Args:
+            batch_dict: Raw batch dictionary from dataloader
+            max_video_samples: Maximum number of video samples allowed
+            
+        Returns:
+            tuple: (filtered_batch_dict, video_count, filtered_count)
+                - filtered_batch_dict: Filtered batch dict (may be smaller)
+                - video_count: Total number of video samples in original batch
+                - filtered_count: Number of video samples removed
+        """
+        if "origin_multi_modal_data" not in batch_dict:
+            # No multi-modal data, no filtering needed
+            return batch_dict, 0, 0
+        
+        origin_mm_data_list = batch_dict["origin_multi_modal_data"]
+        
+        # Identify which samples contain video
+        video_mask = []
+        for origin_mm_data in origin_mm_data_list:
+            has_video = False
+            if isinstance(origin_mm_data, dict) and "video" in origin_mm_data:
+                has_video = True
+            video_mask.append(has_video)
+        
+        video_count = sum(video_mask)
+        
+        if video_count <= max_video_samples:
+            # Within limit, no filtering needed
+            return batch_dict, video_count, 0
+        
+        # Exceeded limit, need to filter
+        num_to_filter = video_count - max_video_samples
+        print(f"⚠️  WARNING: Batch contains {video_count} video samples, exceeds limit of {max_video_samples}")
+        print(f"   Discarding {num_to_filter} video samples before generation to control GPU memory")
+        
+        # Keep all non-video samples and only max_video_samples video samples
+        keep_indices = []
+        video_kept = 0
+        
+        for idx, has_video in enumerate(video_mask):
+            if not has_video:
+                # Always keep non-video samples
+                keep_indices.append(idx)
+            elif video_kept < max_video_samples:
+                # Keep video sample if under limit
+                keep_indices.append(idx)
+                video_kept += 1
+            # else: discard this video sample
+        
+        # Create filtered batch_dict
+        filtered_batch_dict = {}
+        for key, value in batch_dict.items():
+            if isinstance(value, list):
+                filtered_batch_dict[key] = [value[i] for i in keep_indices]
+            elif isinstance(value, torch.Tensor):
+                filtered_batch_dict[key] = value[keep_indices]
+            elif isinstance(value, np.ndarray):
+                filtered_batch_dict[key] = value[keep_indices]
+            else:
+                # For non-sequence values, keep as is
+                filtered_batch_dict[key] = value
+        
+        original_size = len(origin_mm_data_list)
+        filtered_size = len(keep_indices)
+        print(f"   Pre-generation filtering: {original_size} -> {filtered_size} samples "
+              f"({video_kept} video, {filtered_size - video_kept} non-video)")
+        
+        return filtered_batch_dict, video_count, num_to_filter
+
     def _generate_and_score_batch(self, batch_dict, timing_raw):
         """
         Generate rollouts and compute rewards for a single batch.
@@ -1096,8 +1169,15 @@ class RayPPOTrainer:
                 num_gen_batches_for_this_step = 0
                 first_gen_batch = None  # Keep the first generated batch for logging
                 
+                # Video filtering statistics
+                total_video_samples_seen = 0
+                total_video_samples_filtered = 0
+                
                 # Target batch size
                 target_traj_bsz = self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n
+                
+                # Get max video samples per generation batch
+                max_video_gen_batch_size = self.config.data.get("max_video_gen_batch_size", 32)
                 
                 # Generate and filter rollouts until we have enough
                 with _timer("step", timing_raw):
@@ -1110,6 +1190,13 @@ class RayPPOTrainer:
                             break
                         
                         num_gen_batches_for_this_step += 1
+                        
+                        # Filter video samples before generation to control GPU memory
+                        batch_dict, video_count, video_filtered = self._filter_video_samples_in_dict(
+                            batch_dict, max_video_gen_batch_size
+                        )
+                        total_video_samples_seen += video_count
+                        total_video_samples_filtered += video_filtered
                         
                         # Generate rollouts for this batch
                         new_batch = self._generate_and_score_batch(batch_dict, timing_raw)
@@ -1167,10 +1254,10 @@ class RayPPOTrainer:
                     # Please take care when you implement group based adv computation such as GRPO and rloo
                     if self.config.trainer.balance_batch:
                         self._balance_batch(batch, metrics=metrics)
-                    
+
                     # Compute global valid tokens
                     batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
-                    
+
                     # Compute old log probs
                     with _timer("old_log_prob", timing_raw):
                         old_log_prob = self.actor_rollout_wg.compute_log_prob(batch)
@@ -1183,13 +1270,13 @@ class RayPPOTrainer:
                         metrics["actor/entropy_loss"] = entropy_loss.detach().item()
                         old_log_prob.batch.pop("entropys")
                         batch = batch.union(old_log_prob)
-                    
+
                     # Compute reference log probs if using reference policy
                     if self.use_reference_policy:
                         with _timer("ref", timing_raw):
                             ref_log_prob = self.ref_policy_wg.compute_ref_log_prob(batch)
                             batch = batch.union(ref_log_prob)
-                    
+
                     # Compute advantages
                     with _timer("adv", timing_raw):
                         norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)
@@ -1201,16 +1288,16 @@ class RayPPOTrainer:
                             num_repeat=self.config.actor_rollout_ref.rollout.n,
                             norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
                         )
-                    
+
                     # ========== Phase 3: Model updates ==========
-                    
+
                     # Update critic
                     if self.use_critic:
                         with _timer("update_critic", timing_raw):
                             critic_output = self.critic_wg.update_critic(batch)
                         critic_metrics = reduce_metrics(critic_output.meta_info["metrics"])
                         metrics.update(critic_metrics)
-                    
+
                     # Update actor (with optional critic warmup)
                     if self.config.trainer.critic_warmup <= self.global_steps:
                         with _timer("update_actor", timing_raw):
@@ -1243,15 +1330,15 @@ class RayPPOTrainer:
                             val_metrics = self._validate()
                             if is_last_step:
                                 last_val_metrics = val_metrics
-                            metrics.update(val_metrics)
-                    
+                        metrics.update(val_metrics)
+
                     # Checkpointing
                     if self.config.trainer.save_freq > 0 and (
                         is_last_step or self.global_steps % self.config.trainer.save_freq == 0
                     ):
                         with _timer("save_checkpoint", timing_raw):
                             self._save_checkpoint()
-                
+
                 # ========== Phase 5: Collect and log metrics ==========
                 
                 # Add various metrics
@@ -1260,23 +1347,29 @@ class RayPPOTrainer:
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
                 metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
-                
+
                 if self.config.actor_rollout_ref.rollout.agent.activate_agent:
                     metrics.update(compute_agent_metrics(batch=batch))
-                
+
                 # Add rollout collection metrics
                 metrics["train/num_gen_batches"] = num_gen_batches_for_this_step
                 metrics["train/accumulated_rollout_count"] = accumulated_rollout_count
                 
+                # Add video filtering metrics
+                if total_video_samples_seen > 0:
+                    metrics["train/video_samples_seen"] = total_video_samples_seen
+                    metrics["train/video_samples_filtered"] = total_video_samples_filtered
+                    metrics["train/video_filter_rate"] = total_video_samples_filtered / total_video_samples_seen if total_video_samples_seen > 0 else 0.0
+                
                 # Log all metrics
                 logger.log(data=metrics, step=self.global_steps, batch=batch, tokenizer=self.tokenizer)
-                
+
                 # Check if training is complete
                 if is_last_step:
                     pprint(f"Final validation metrics: {last_val_metrics}")
                     progress_bar.close()
                     return
-                
+
                 # Advance to next step
                 progress_bar.update(1)
                 self.global_steps += 1
