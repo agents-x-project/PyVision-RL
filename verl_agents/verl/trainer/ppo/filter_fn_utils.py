@@ -11,14 +11,7 @@ from typing import Dict, Type
 import numpy as np
 
 def dynamic_sampling_fn(new_batch):
-    # we skip to the next generation batch
-    # metric_name = self.config.algorithm.filter_groups.metric
-    # if metric_name == "seq_final_reward":
-    #     # Turn to numpy for easier filtering
-    #     new_batch.non_tensor_batch["seq_final_reward"] = (
-    #         new_batch.batch["token_level_rewards"].sum(dim=-1).numpy()
-    #     )
-    # elif metric_name == "seq_reward":
+
     new_batch.non_tensor_batch["seq_reward"] = (
         new_batch.batch["token_level_scores"].sum(dim=-1).numpy()
     )
@@ -60,7 +53,13 @@ def dynamic_sampling_fn(new_batch):
 
     new_batch = new_batch[kept_traj_idxs]
 
-    return new_batch
+    filter_reason = {
+        "kept": kept_prompt_uids,
+        "mean_0": mean_0_traj_uids,
+        "mean_1": mean_1_traj_uids,
+    }
+
+    return new_batch, filter_reason
 
 def hasimage_filtering_fn(new_batch):
 
@@ -88,14 +87,32 @@ def trajlength_filtering_fn(new_batch):
 
     return new_batch
 
+def end_reason_filtering_fn(new_batch):
+    kept_traj_idxs = []
+    for idx, end_reason in enumerate(new_batch.non_tensor_batch["end_reason"]):
+        if end_reason == 1:     # 1 means DONE in EndReasonEnum in verl_agents/verl/workers/agent/parallel_env.py
+            kept_traj_idxs.append(idx)
+
+    print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+
+    new_batch = new_batch[kept_traj_idxs]
+
+    return new_batch
+
 def rollout_filtering_function(new_batch, metric_name_list):
     print(f"[INFO batch filter] rolling out filtering on metrics: {metric_name_list}")
+
     if "seq_reward" in metric_name_list:
-        new_batch = dynamic_sampling_fn(new_batch)
+        new_batch, dynamic_sampling_filter_reason = dynamic_sampling_fn(new_batch)
+
     if "hasimage" in metric_name_list:
         new_batch = hasimage_filtering_fn(new_batch)
+
     if "trajlength" in metric_name_list:
         new_batch = trajlength_filtering_fn(new_batch)
+
+    if "end_reason" in metric_name_list:
+        new_batch = end_reason_filtering_fn(new_batch)
 
     return new_batch
 

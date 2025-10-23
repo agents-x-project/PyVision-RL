@@ -199,6 +199,8 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
 gen_batch_size=64   
 max_video_gen_batch_size=32     // 32 might cause OOM in longvila
 gen_batch_size_align_method="up_resample_image"     // up_resample_image: resample prompts from dataloader to fill discarded prompts with video
+
+filter_groups_metric="${filter_groups_metric},end_reason"
 ```
 
 ```bash

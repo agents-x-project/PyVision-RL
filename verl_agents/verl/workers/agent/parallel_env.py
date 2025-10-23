@@ -411,7 +411,8 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
         non_tensors={
             "multi_modal_inputs": mm_input_list,
             "hasimage": hasimage_list,
-            "trajlength": trajlength_list
+            "trajlength": trajlength_list,
+            "end_reason": end_reason_list,
         }
     )
 
