@@ -1025,7 +1025,7 @@ class RayPPOTrainer:
             batch_dict: Raw batch dictionary (after video filtering)
             dataloader_iter: Iterator to get additional batches if needed
             method: Alignment method
-                - "up_resample_image" or "resample_image": Resample image data to reach target_gen_batch_size
+                - "up_resample_image": Resample image data to reach target_gen_batch_size
                 - "discard_image_to_chunk_8": Discard image data to align to multiple of 8
             target_gen_batch_size: Target generation batch size
             
@@ -1043,7 +1043,7 @@ class RayPPOTrainer:
             print(f"⚠️  WARNING: Cannot determine batch size for alignment")
             return batch_dict, {"method": method, "original_size": 0, "aligned_size": 0, "changed": False}
         
-        if method in ["up_resample_image", "resample_image"]:
+        if method == "up_resample_image":
             # Always resample to reach target_gen_batch_size, even if already multiple of 8
             if current_size >= target_gen_batch_size:
                 # Already at or above target, no need to resample
@@ -1192,7 +1192,7 @@ class RayPPOTrainer:
         
         else:
             raise ValueError(f"Unknown alignment method '{method}'. "
-                           f"Supported methods: 'up_resample_image', 'resample_image', 'discard_image_to_chunk_8'")
+                           f"Supported methods: 'up_resample_image', 'discard_image_to_chunk_8'")
 
     def _generate_and_score_batch(self, batch_dict, timing_raw):
         """
