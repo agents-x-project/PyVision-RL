@@ -1017,112 +1017,160 @@ class RayPPOTrainer:
         
         return filtered_batch_dict, video_count, num_to_filter
 
-    def _align_batch_size_to_multiple_of_8(self, batch_dict: dict, method: str, target_gen_batch_size: int):
+    def _align_batch_size_for_generation(self, batch_dict: dict, dataloader_iter, method: str, target_gen_batch_size: int):
         """
-        Align batch size to be a multiple of 8 for generation requirements.
+        Align batch size for generation to meet requirements (multiple of 8).
         
         Args:
-            batch_dict: Raw batch dictionary from dataloader
-            method: Alignment method, either "up_resample_image" or "discard_image_to_chunk_8"
-            target_gen_batch_size: Original target generation batch size
+            batch_dict: Raw batch dictionary (after video filtering)
+            dataloader_iter: Iterator to get additional batches if needed
+            method: Alignment method
+                - "up_resample_image" or "resample_image": Resample image data to reach target_gen_batch_size
+                - "discard_image_to_chunk_8": Discard image data to align to multiple of 8
+            target_gen_batch_size: Target generation batch size
             
         Returns:
             tuple: (aligned_batch_dict, alignment_info)
                 - aligned_batch_dict: Aligned batch dict
                 - alignment_info: dict with alignment statistics
         """
-        if "origin_multi_modal_data" not in batch_dict:
-            # No multi-modal data, check if already aligned
-            current_size = len(batch_dict.get("input_ids", []))
-            if current_size % 8 != 0:
-                print(f"⚠️  WARNING: Batch size {current_size} is not a multiple of 8, but no image data to adjust")
-            return batch_dict, {"method": method, "original_size": current_size, "aligned_size": current_size, "changed": False}
+        # Get current batch size
+        if "origin_multi_modal_data" in batch_dict:
+            current_size = len(batch_dict["origin_multi_modal_data"])
+        elif "input_ids" in batch_dict:
+            current_size = len(batch_dict["input_ids"])
+        else:
+            print(f"⚠️  WARNING: Cannot determine batch size for alignment")
+            return batch_dict, {"method": method, "original_size": 0, "aligned_size": 0, "changed": False}
         
-        origin_mm_data_list = batch_dict["origin_multi_modal_data"]
-        current_size = len(origin_mm_data_list)
-        
-        # Check if already aligned
-        if current_size % 8 == 0:
-            return batch_dict, {"method": method, "original_size": current_size, "aligned_size": current_size, "changed": False}
-        
-        # Identify image samples
-        image_indices = []
-        non_image_indices = []
-        for idx, origin_mm_data in enumerate(origin_mm_data_list):
-            has_image = False
-            if isinstance(origin_mm_data, dict) and "image" in origin_mm_data:
-                has_image = True
+        if method in ["up_resample_image", "resample_image"]:
+            # Always resample to reach target_gen_batch_size, even if already multiple of 8
+            if current_size >= target_gen_batch_size:
+                # Already at or above target, no need to resample
+                return batch_dict, {
+                    "method": method,
+                    "original_size": current_size,
+                    "aligned_size": current_size,
+                    "changed": False
+                }
             
-            if has_image:
-                image_indices.append(idx)
-            else:
-                non_image_indices.append(idx)
-        
-        num_images = len(image_indices)
-        
-        if method == "up_resample_image":
-            # Calculate how many samples needed to align to target_gen_batch_size
-            if current_size < target_gen_batch_size:
-                needed = target_gen_batch_size - current_size
-            else:
-                # If already larger than target, align to next multiple of 8
-                needed = (8 - (current_size % 8)) % 8
+            needed = target_gen_batch_size - current_size
             
-            if needed == 0:
-                return batch_dict, {"method": method, "original_size": current_size, "aligned_size": current_size, "changed": False}
+            # Get a new batch from dataloader to extract image data
+            try:
+                new_batch_dict = next(dataloader_iter)
+            except StopIteration:
+                print(f"⚠️  WARNING: Cannot get new batch for resampling (dataloader exhausted)")
+                return batch_dict, {
+                    "method": method,
+                    "original_size": current_size,
+                    "aligned_size": current_size,
+                    "changed": False
+                }
             
-            if num_images == 0:
-                print(f"⚠️  WARNING: Need to upsample {needed} samples but no image data available")
-                return batch_dict, {"method": method, "original_size": current_size, "aligned_size": current_size, "changed": False}
+            # Identify image samples in the new batch
+            image_indices = []
+            if "origin_multi_modal_data" in new_batch_dict:
+                origin_mm_data_list = new_batch_dict["origin_multi_modal_data"]
+                for idx, origin_mm_data in enumerate(origin_mm_data_list):
+                    has_image = False
+                    if isinstance(origin_mm_data, dict) and "image" in origin_mm_data:
+                        has_image = True
+                    if has_image:
+                        image_indices.append(idx)
             
-            # Randomly sample from image indices with replacement
+            if len(image_indices) == 0:
+                print(f"⚠️  WARNING: No image data in new batch for resampling")
+                return batch_dict, {
+                    "method": method,
+                    "original_size": current_size,
+                    "aligned_size": current_size,
+                    "changed": False
+                }
+            
+            # Sample with replacement if needed
             import random
-            sampled_indices = random.choices(image_indices, k=needed)
+            if len(image_indices) < needed:
+                # Need to sample with replacement
+                sampled_indices = random.choices(image_indices, k=needed)
+            else:
+                # Can sample without replacement
+                sampled_indices = random.sample(image_indices, k=needed)
             
-            print(f"📊 Upsampling: Adding {needed} image samples to align batch size {current_size} -> {current_size + needed}")
+            print(f"📊 Batch alignment ({method}): Adding {needed} image samples from new batch "
+                  f"to reach target size {current_size} -> {target_gen_batch_size}")
             
-            # Create new batch_dict with duplicated samples
+            # Create aligned batch_dict by appending sampled image data
             aligned_batch_dict = {}
-            all_indices = list(range(current_size)) + sampled_indices
-            
             for key, value in batch_dict.items():
                 if isinstance(value, list):
-                    aligned_batch_dict[key] = [value[i] for i in all_indices]
+                    aligned_batch_dict[key] = value + [new_batch_dict[key][i] for i in sampled_indices]
                 elif isinstance(value, torch.Tensor):
-                    aligned_batch_dict[key] = torch.cat([value, value[sampled_indices]], dim=0)
+                    sampled_data = new_batch_dict[key][sampled_indices]
+                    aligned_batch_dict[key] = torch.cat([value, sampled_data], dim=0)
                 elif isinstance(value, np.ndarray):
-                    aligned_batch_dict[key] = np.concatenate([value, value[sampled_indices]], axis=0)
+                    sampled_data = new_batch_dict[key][sampled_indices]
+                    aligned_batch_dict[key] = np.concatenate([value, sampled_data], axis=0)
                 else:
+                    # Non-sequence values, keep as is
                     aligned_batch_dict[key] = value
             
             return aligned_batch_dict, {
                 "method": method,
                 "original_size": current_size,
-                "aligned_size": current_size + needed,
+                "aligned_size": target_gen_batch_size,
                 "changed": True,
-                "images_resampled": needed
+                "images_added": needed
             }
         
         elif method == "discard_image_to_chunk_8":
-            # Calculate how many samples to discard
+            # Discard image data to align to multiple of 8
+            if current_size % 8 == 0:
+                # Already aligned
+                return batch_dict, {
+                    "method": method,
+                    "original_size": current_size,
+                    "aligned_size": current_size,
+                    "changed": False
+                }
+            
             to_discard = current_size % 8
+            
+            # Identify image samples
+            image_indices = []
+            if "origin_multi_modal_data" in batch_dict:
+                origin_mm_data_list = batch_dict["origin_multi_modal_data"]
+                for idx, origin_mm_data in enumerate(origin_mm_data_list):
+                    has_image = False
+                    if isinstance(origin_mm_data, dict) and "image" in origin_mm_data:
+                        has_image = True
+                    if has_image:
+                        image_indices.append(idx)
+            
+            num_images = len(image_indices)
             
             if num_images < to_discard:
                 print(f"⚠️  WARNING: Need to discard {to_discard} samples but only {num_images} image samples available")
-                # Discard all images if not enough
                 to_discard = num_images
             
-            if to_discard == 0:
-                return batch_dict, {"method": method, "original_size": current_size, "aligned_size": current_size, "changed": False}
+            if to_discard == 0 or num_images == 0:
+                print(f"⚠️  WARNING: Cannot align batch size (no image data to discard)")
+                return batch_dict, {
+                    "method": method,
+                    "original_size": current_size,
+                    "aligned_size": current_size,
+                    "changed": False
+                }
             
             # Discard the last to_discard image samples
             indices_to_discard = set(image_indices[-to_discard:])
             keep_indices = [i for i in range(current_size) if i not in indices_to_discard]
             
             aligned_size = len(keep_indices)
-            print(f"📊 Discarding: Removing {to_discard} image samples to align batch size {current_size} -> {aligned_size}")
+            print(f"📊 Batch alignment ({method}): Discarding {to_discard} image samples "
+                  f"to align to multiple of 8: {current_size} -> {aligned_size}")
             
-            # Create new batch_dict with kept samples
+            # Create aligned batch_dict with kept samples
             aligned_batch_dict = {}
             for key, value in batch_dict.items():
                 if isinstance(value, list):
@@ -1143,8 +1191,8 @@ class RayPPOTrainer:
             }
         
         else:
-            print(f"⚠️  WARNING: Unknown alignment method '{method}', skipping alignment")
-            return batch_dict, {"method": method, "original_size": current_size, "aligned_size": current_size, "changed": False}
+            raise ValueError(f"Unknown alignment method '{method}'. "
+                           f"Supported methods: 'up_resample_image', 'resample_image', 'discard_image_to_chunk_8'")
 
     def _generate_and_score_batch(self, batch_dict, timing_raw):
         """
@@ -1303,14 +1351,14 @@ class RayPPOTrainer:
                 total_video_samples_filtered = 0
                 
                 # Batch alignment statistics
-                total_samples_aligned = 0
-                total_images_resampled = 0
+                total_batches_aligned = 0
+                total_images_added = 0
                 total_images_discarded = 0
                 
                 # Target batch size
                 target_traj_bsz = self.config.data.train_batch_size * self.config.actor_rollout_ref.rollout.n
                 
-                # Get configuration
+                # Get configuration for generation batch processing
                 max_video_gen_batch_size = self.config.data.get("max_video_gen_batch_size", 32)
                 gen_batch_size = self.config.data.get("gen_batch_size", self.config.data.train_batch_size)
                 align_method = self.config.data.get("gen_batch_size_align_method", "up_resample_image")
@@ -1334,14 +1382,14 @@ class RayPPOTrainer:
                         total_video_samples_seen += video_count
                         total_video_samples_filtered += video_filtered
                         
-                        # Align batch size to multiple of 8
-                        batch_dict, align_info = self._align_batch_size_to_multiple_of_8(
-                            batch_dict, align_method, gen_batch_size
+                        # Align batch size for generation requirements (multiple of 8)
+                        batch_dict, align_info = self._align_batch_size_for_generation(
+                            batch_dict, dataloader_iter, align_method, gen_batch_size
                         )
                         if align_info["changed"]:
-                            total_samples_aligned += 1
-                            if "images_resampled" in align_info:
-                                total_images_resampled += align_info["images_resampled"]
+                            total_batches_aligned += 1
+                            if "images_added" in align_info:
+                                total_images_added += align_info["images_added"]
                             if "images_discarded" in align_info:
                                 total_images_discarded += align_info["images_discarded"]
                         
@@ -1509,11 +1557,11 @@ class RayPPOTrainer:
                     metrics["train/video_filter_rate"] = total_video_samples_filtered / total_video_samples_seen if total_video_samples_seen > 0 else 0.0
                 
                 # Add batch alignment metrics
-                if total_samples_aligned > 0:
-                    metrics["train/batches_aligned"] = total_samples_aligned
+                if total_batches_aligned > 0:
+                    metrics["train/batches_aligned"] = total_batches_aligned
                     metrics["train/alignment_method"] = align_method
-                    if total_images_resampled > 0:
-                        metrics["train/images_resampled"] = total_images_resampled
+                    if total_images_added > 0:
+                        metrics["train/images_added"] = total_images_added
                     if total_images_discarded > 0:
                         metrics["train/images_discarded"] = total_images_discarded
                 
