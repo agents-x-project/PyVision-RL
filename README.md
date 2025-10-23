@@ -193,7 +193,21 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
 
 ```
 
-Apply `+data.gen_batch_size=${gen_batch_size}` if OOM caused by long video loading.
+##### Added Optional Configs
+
+```bash
+gen_batch_size=64   
+max_video_gen_batch_size=32     // 32 might cause OOM in longvila
+gen_batch_size_align_method="up_resample_image"     // up_resample_image: resample prompts from dataloader to fill discarded prompts with video
+```
+
+```bash
+    +data.gen_batch_size=${gen_batch_size} \    
+    +data.max_video_gen_batch_size=${max_video_gen_batch_size} \        
+    +data.gen_batch_size_align_method=${gen_batch_size_align_method} \  
+```
+
+
 
 
 #### Single Node
