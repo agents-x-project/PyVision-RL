@@ -223,7 +223,7 @@ class SafeImageRuntime:
                             # init_captured_figures.append(base64.b64encode(
                             #     BytesIO(image.tobytes()).getvalue()).decode('utf-8'))
                             image_var_idx += 1
-                            print("############################# image hint has been injected into the Python runtime. #################################")
+                            # print("############################# image hint has been injected into the Python runtime. #################################")
 
             image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)

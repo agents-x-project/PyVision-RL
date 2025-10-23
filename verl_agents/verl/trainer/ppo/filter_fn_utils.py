@@ -31,21 +31,32 @@ def dynamic_sampling_fn(new_batch):
         prompt_uid2metric_vals[uid].append(metric_val)
 
     prompt_uid2metric_std = {}
+    prompt_uid2metric_mean = {}
     for prompt_uid, metric_vals in prompt_uid2metric_vals.items():
         prompt_uid2metric_std[prompt_uid] = np.std(metric_vals)
+        prompt_uid2metric_mean[prompt_uid] = np.mean(metric_vals)
 
-    kept_prompt_uids = [
-        uid
-        for uid, std in prompt_uid2metric_std.items()
-        if std > 0 or len(prompt_uid2metric_vals[uid]) == 1
-    ]
+    kept_prompt_uids = []
+    mean_0_traj_uids = []
+    mean_1_traj_uids = []
+
+    for uid, std in prompt_uid2metric_std.items():
+        if std > 0 or len(prompt_uid2metric_vals[uid]) == 1:
+            kept_prompt_uids.append(uid)
+        else:
+            if prompt_uid2metric_mean[uid] == 0:
+                mean_0_traj_uids.append(uid)
+            else:
+                mean_1_traj_uids.append(uid)
+
+    # TODO: number of trajectories in one group should be config.actor_rollout_ref.rollout.n ?
 
     kept_traj_idxs = []
     for idx, traj_from_prompt_uid in enumerate(new_batch.non_tensor_batch["uid"]):
         if traj_from_prompt_uid in kept_prompt_uids:
             kept_traj_idxs.append(idx)
 
-    print(f"[INFO batch filter] dynamic sampling std=0 filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+    print(f"[INFO batch filter] dynamic sampling std=0 filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs, ({len(mean_0_traj_uids)} mean=0, {len(mean_1_traj_uids)} mean=1)")
 
     new_batch = new_batch[kept_traj_idxs]
 

@@ -247,7 +247,7 @@ class SafeImageRuntime:
                             #         image_var_idx += 1
                             
                             video_var_idx += 1
-                            print("############################# video hint has been injected into the Python runtime. #################################")
+                            # print("############################# video hint has been injected into the Python runtime. #################################")
                         else:
                             raise RuntimeError("Data not found")
                     else:
