@@ -193,6 +193,9 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
 
 ```
 
+Apply `+data.gen_batch_size=${gen_batch_size}` if OOM caused by long video loading.
+
+
 #### Single Node
 ```bash
 # TODO

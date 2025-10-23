@@ -17,6 +17,7 @@ from contextlib import redirect_stdout
 import threading
 import queue
 import time
+from decord import VideoReader, cpu  
 
 class PersistentWorker:
     """持久化的工作进程"""
@@ -113,6 +114,7 @@ class PersistentWorker:
                     })
                     
             except Exception as e:
+                print(f"Worker error: {str(e)}, {traceback.format_exc()}")
                 self.output_queue.put({
                     'status': 'error',
                     'error': f'Worker error: {str(e)}',
@@ -131,6 +133,7 @@ class PersistentWorker:
             result = self.output_queue.get(timeout=timeout)
             return result
         except queue.Empty:
+            print(f"[WARNING] PyVision Code Execution timeout")
             return {
                 'status': 'error',
                 'error': 'Execution timeout'
@@ -210,15 +213,24 @@ class SafeImageRuntime:
             image_var_idx = 0
             video_var_idx = 0
             init_captured_figures = []
+
+            if len(messages) == 0:
+                raise RuntimeError("SafeImageRuntime init: message is empty")
+
             for i, message in enumerate(messages):
+
+                if len(message.get('content', [])) == 0:
+                    raise RuntimeError("message content is empty")
+
                 for item in message.get('content', []):
                     if item.get('type') == "image_url":
                         img = base64_to_image(item['image_url']['url'])
                         if img:
                             image_var_dict[f"image_clue_{image_var_idx}"] = img
                             init_captured_figures.append(img)
+                        raise RuntimeError("should not use image in video type dataset")
 
-                    elif item_type == "video_hint_path":
+                    elif item.get('type') == "video_hint_path":
                         # print(" videos are in the messages !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
                         # 处理视频输入
                         video_path = item.get('video_hint_path')
@@ -236,9 +248,16 @@ class SafeImageRuntime:
                             
                             video_var_idx += 1
                             print("############################# video hint has been injected into the Python runtime. #################################")
+                        else:
+                            raise RuntimeError("Data not found")
+                    else:
+                        raise RuntimeError("Data type undefined")
 
             image_var_dict[f"_captured_figures"] = init_captured_figures
             self._global_vars.update(image_var_dict)
+        
+        else:
+            raise RuntimeError("messages not found")
 
     def exec_code(self, code: str) -> None:
         """执行代码并捕获图形"""
@@ -258,6 +277,7 @@ class SafeImageRuntime:
         return self._global_vars.get("_captured_figures", [])
 
 class MultiModalPythonTool_wo_Video_Hint(ToolBase):
+    
     name = "pyvision_gym_wo_video_hint"
     description = "Tool for executing Python code with multimodal capabilities"
     
@@ -431,6 +451,7 @@ class MultiModalPythonTool_wo_Video_Hint(ToolBase):
     def _convert_to_messages_wo_video_hint(self, origin_multi_modal_data):
         """Convert multi_modal_data to messages format"""
         if not origin_multi_modal_data or 'video' not in origin_multi_modal_data:
+            raise RuntimeError("no video in origin_multi_modal_data")
             return []
         
         messages = [{
@@ -444,6 +465,9 @@ class MultiModalPythonTool_wo_Video_Hint(ToolBase):
                 "type": "video_hint_path",
                 "video_hint_path": video_path
             })
+        
+        if len(origin_multi_modal_data['video']) == 0:
+            raise RuntimeError("origin_multi_modal_data['video'] is empty")
         
         return messages
     
