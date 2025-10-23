@@ -25,6 +25,7 @@ class EndReasonEnum(enum.IntEnum):
     DONE = 1
     OVER_LENGTH = 2
     EXCEED_MAX_TURNS = 3
+    EXCEED_MAX_IMAGE_NUM_32 = 4
 
 def _strip_system_block(text: str) -> str:
     """
@@ -158,7 +159,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
         multi_modal_inputs = multi_modal_inputs.tolist()
     else:
         multi_modal_inputs = [{}] * len(vllm_inputs)
-        print("############################# No multi_modal_inputs in the batch, reinit ###########################")
+        # print("############################# No multi_modal_inputs in the batch, reinit ###########################")
 
     batch_size = len(vllm_inputs)
     vllm_input_list = []
@@ -293,6 +294,10 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                         vllm_input_list[idx]['multi_modal_data'] = {"image": []}
                     vllm_input_list[idx]['multi_modal_data']['image'] += mm_data['image']
                     hasimage_list[idx] = True
+                    if len(vllm_input_list[idx]['multi_modal_data']['image']) >= 32:
+                        active_mask[idx] = False
+                        end_reason_list[idx] = EndReasonEnum.EXCEED_MAX_IMAGE_NUM_32
+                        continue
 
                 mm_input = obs.get('multi_modal_inputs', {})
                 if mm_input:
