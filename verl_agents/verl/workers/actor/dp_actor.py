@@ -353,41 +353,41 @@ class DataParallelPPOActor(BasePPOActor):
                     # print(f"shape of response mask: {response_mask.shape}")
                     # print(f"len of data: {len(data)}")
                     # print(f"keys of data: {data.keys()}")
-                    if tool_cnt == interaction_budget:
-                        filter_mask = torch.zeros_like(response_mask)
-                        # print("tool_cnt is ")
-                    else:
-                        filter_mask = response_mask
+                    # if tool_cnt == interaction_budget:
+                    #     filter_mask = torch.zeros_like(response_mask)
+                    #     # print("tool_cnt is ")
+                    # else:
+                    #     filter_mask = response_mask
 
-                    if overbudget_masking:
+                    # if overbudget_masking:
 
-                        pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss_with_filter_mask(
-                            old_log_prob=old_log_prob,
-                            log_prob=log_prob,
-                            advantages=advantages,
-                            response_mask=response_mask,
-                            filter_mask=filter_mask,
-                            cliprange=clip_ratio,
-                            cliprange_low=clip_ratio_low,
-                            cliprange_high=clip_ratio_high,
-                            clip_ratio_c=clip_ratio_c,
-                            loss_agg_mode=loss_agg_mode,
-                        )
+                    #     pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss_with_filter_mask(
+                    #         old_log_prob=old_log_prob,
+                    #         log_prob=log_prob,
+                    #         advantages=advantages,
+                    #         response_mask=response_mask,
+                    #         filter_mask=filter_mask,
+                    #         cliprange=clip_ratio,
+                    #         cliprange_low=clip_ratio_low,
+                    #         cliprange_high=clip_ratio_high,
+                    #         clip_ratio_c=clip_ratio_c,
+                    #         loss_agg_mode=loss_agg_mode,
+                    #     )
 
 ########################################################################################################################
 
-                    else:
-                        pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
-                            old_log_prob=old_log_prob,
-                            log_prob=log_prob,
-                            advantages=advantages,
-                            response_mask=response_mask,
-                            cliprange=clip_ratio,
-                            cliprange_low=clip_ratio_low,
-                            cliprange_high=clip_ratio_high,
-                            clip_ratio_c=clip_ratio_c,
-                            loss_agg_mode=loss_agg_mode,
-                        )
+                    # else:
+                    pg_loss, pg_clipfrac, ppo_kl, pg_clipfrac_lower = compute_policy_loss(
+                        old_log_prob=old_log_prob,
+                        log_prob=log_prob,
+                        advantages=advantages,
+                        response_mask=response_mask,
+                        cliprange=clip_ratio,
+                        cliprange_low=clip_ratio_low,
+                        cliprange_high=clip_ratio_high,
+                        clip_ratio_c=clip_ratio_c,
+                        loss_agg_mode=loss_agg_mode,
+                    )
 
                     if entropy_coeff != 0:
                         entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
