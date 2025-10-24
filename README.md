@@ -108,19 +108,26 @@ PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.
                                                                                                                                                         #
 #########################################################################################################################################################
 
+#################################### Data Loading Parameter ######################################
+gen_batch_size=64   
+max_video_gen_batch_size=32     # 32 might cause OOM in longvila
+gen_batch_size_align_method="up_resample_image"     # up_resample_image: resample prompts from dataloader to fill discarded prompts with video
+##################################################################################################
+
 #################################### Dynamic Sampling Parameter ##################################
-enable_filter_groups=True                                                                        #
-filter_groups_metric='seq_reward,hasimage,trajlength'                                                                #
-max_num_gen_batches=0                                                                            #
+enable_filter_groups=True                                                                        
+filter_groups_metric='seq_reward,hasimage,trajlength,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`                                                        
+end_reason_filter_reserve_names='DONE,EXCEED_MAX_IMAGE_NUM_32'     # Options: [ON_GONIG, DONE, OVER_LENGTH, EXCEED_MAX_TURNS, EXCEED_MAX_IMAGE_NUM_32]
+max_num_gen_batches=0                                                                            
 ##################################################################################################
 
 #################################### Other RL Parameter ##########################################
-rollout_num=8                                                                                    #
-max_turn=5                                                                                       #
+rollout_num=8                                                                                    
+max_turn=5                                                                                       
 tool_using_cumulative_reward_per_turn=0.0
-                                                                                                 #
-with_mm_hint=False                                                                               #
-WORLD_SIZE=1                                                                                     #
+                                                                                                 
+with_mm_hint=False                                                                               
+WORLD_SIZE=1                                                                                     
 ##################################################################################################
 
 
@@ -136,6 +143,9 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     data.return_raw_chat=True \
     data.filter_overlong_prompts=True \
     data.with_mm_hint=${with_mm_hint} \
+    +data.gen_batch_size=${gen_batch_size} \
+    +data.max_video_gen_batch_size=${max_video_gen_batch_size} \   
+    +data.gen_batch_size_align_method=${gen_batch_size_align_method} \
     algorithm.adv_estimator=grpo \
     algorithm.kl_ctrl.kl_coef=0.0 \
     actor_rollout_ref.model.path=${REF_MODEL_PATH} \
@@ -152,6 +162,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     algorithm.filter_groups.enable=${enable_filter_groups} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
     algorithm.filter_groups.metric=[${filter_groups_metric}] \
+    +algorithm.filter_groups.end_reason_filter_reserve_names=[${end_reason_filter_reserve_names}] \
     actor_rollout_ref.rollout.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.rollout.tensor_model_parallel_size=1 \
     actor_rollout_ref.rollout.name=vllm \
@@ -188,39 +199,6 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +trainer.rl_logging_board_dir=${SAVE_CHECKPOINT_DIR}/logs/rl_logging_board \
     trainer.total_epochs=32 2>&1 | tee ./logs/${EXPERIMENT_NAME}.log
 
-```
-
-##### Added Optional Configs
-
-```bash
-gen_batch_size=64   
-max_video_gen_batch_size=32     // 32 might cause OOM in longvila
-gen_batch_size_align_method="up_resample_image"     // up_resample_image: resample prompts from dataloader to fill discarded prompts with video
-```
-
-```bash
-    +data.gen_batch_size=${gen_batch_size} \    
-    +data.max_video_gen_batch_size=${max_video_gen_batch_size} \        
-    +data.gen_batch_size_align_method=${gen_batch_size_align_method} \  
-```
-
-end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`
-
-```bash
-    filter_groups_metric="${filter_groups_metric},end_reason"
-```
-
-```bash
-    +algorithm.filter_groups.end_reason_filter_reserve_names="[DONE,EXCEED_MAX_IMAGE_NUM_32]" \
-```
-
-you can choose from:
-```
-ON_GONIG
-DONE
-OVER_LENGTH
-EXCEED_MAX_TURNS
-EXCEED_MAX_IMAGE_NUM_32
 ```
 
 #### Single Node
