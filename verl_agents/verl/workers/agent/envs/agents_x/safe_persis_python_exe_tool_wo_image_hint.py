@@ -287,7 +287,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
         if not code:
             error_msg = "No Python code or final answer found. There is something wrong with the format."
             obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
-            return obs, 0.0, False, {"error": error_msg}
+            return obs, 0.0, False, {"error": "NO_CODE_NOR_ANSWER"}
         
         try:
             messages = self._convert_to_messages_wo_image_hint(self.origin_multi_modal_data)
@@ -308,7 +308,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
                         if None in images:
                             error_msg = "Something wrong with processed images."
                             obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
-                            return obs, 0.0, False, {"error": error_msg}
+                            return obs, 0.0, False, {"error": "ERROR_WHEN_PROCESSING_IMAGES"}
                         image_content = []
                         image_clue_idx = self._figures_count
                         
@@ -373,9 +373,9 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
                 return obs, self.tool_using_cumulative_reward_per_turn, False, {"status": "success"}
                 
         except Exception as e:
-            error_msg = f"Tool error: {str(e)}"
+            error_msg = f"TOOL_EXECUTION_ERROR"
             obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
-            return obs, 0.0, False, {"error": str(e)}
+            return obs, 0.0, False, {"error": "TOOL_EXECUTION_ERROR"}
     
     def reset(self, raw_prompt, multi_modal_data, origin_multi_modal_data, tool_using_cumulative_reward_per_turn, **kwargs):
         """Reset tool state"""

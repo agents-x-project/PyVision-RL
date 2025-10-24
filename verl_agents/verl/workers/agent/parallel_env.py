@@ -26,6 +26,7 @@ class EndReasonEnum(enum.IntEnum):
     OVER_LENGTH = 2
     EXCEED_MAX_TURNS = 3
     EXCEED_MAX_IMAGE_NUM_32 = 4
+    ERROR_IN_ACTION = 5
 
 def _strip_system_block(text: str) -> str:
     """
@@ -223,10 +224,10 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             obs_results = None
 
         obs_results = pg.broadcast_object(obs_results)
-        observations, rewards, dones, info = obs_results
+        observations, rewards, dones, is_errors = obs_results
 
 
-        for idx, obs, act, rew, done in zip(active_indices, observations, actions, rewards, dones):
+        for idx, obs, act, rew, done, is_error in zip(active_indices, observations, actions, rewards, dones, is_errors):
             # process response token ids
             response_token_ids = torch.tensor(act.outputs[0].token_ids, dtype=torch.int64, device=running_states[idx].device)
             running_states[idx] = torch.cat([running_states[idx], response_token_ids])
@@ -249,6 +250,11 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 active_mask[idx] = False
                 end_reason_list[idx] = EndReasonEnum.OVER_LENGTH
                 continue
+
+            if is_error:
+                active_mask[idx] = False
+                end_reason_list[idx] = EndReasonEnum.ERROR_IN_ACTION
+                continue     
 
             if done:
                 active_mask[idx] = False
@@ -390,17 +396,6 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     reward_tensor = pad_2d_list_to_length(reward_tensor_list, 0.0, max_total_length).to(target_device)
 
     tool_call_tensor = torch.tensor(tool_call_cnt_list, dtype=torch.float32).to(target_device).unsqueeze(1)
-    # return DataProto.from_dict(
-    #     tensors={
-    #         "response": state_tensor[:, -config.response_length: ],
-    #         "action_mask": action_mask_tensor,
-    #         "attention_mask": attn_mask_tensor,
-    #         "position_ids": position_ids_tensor,
-    #         "env_reward": reward_tensor[:, -config.response_length: ],
-    #         "tool_cnt": tool_call_tensor,
-    #     },
-    #     non_tensors={"multi_modal_inputs": mm_input_list} if processor is not None else None
-    # )
 
     print(f"################## len of mm_input_list: {len(mm_input_list)} #########################")
     print(f"################## keys of mm_input_list: {mm_input_list[0].keys()} #########################")
@@ -528,6 +523,7 @@ class ParallelEnv:
         obs_list = [{}] * len(actions)
         reward_list = [0.0] * len(actions)
         done_list = []
+        is_error_list = []
         valid_indices = []
         real_indices = []
         valid_actions = []
@@ -536,13 +532,16 @@ class ParallelEnv:
         for i, (idx, act) in enumerate(zip(active_indices, actions)):
             if act.outputs[0].finish_reason == 'length':
                 done_list.append(True)
+                is_error_list.append(True)
                 continue
 
             if len(act.outputs[0].token_ids) == 0:
                 done_list.append(True)
+                is_error_list.append(True)
                 continue
 
             done_list.append(False)
+            is_error_list.append(False)
             real_indices.append(i)
             valid_indices.append(idx)
             valid_actions.append(act.outputs[0].text)
@@ -566,18 +565,22 @@ class ParallelEnv:
                 obs_list[subidx] = obs
                 reward_list[subidx] = reward
                 done_list[subidx] |= done
+                if "error" in info:
+                    is_error_list[subidx] = True
         else:
             partial_tool_func = partial(execute_tool_call, tokenizer=self.tokenizer, processor=self.processor, pbar=pbar)
             with ThreadPoolExecutor(max_workers=num_workers) as executor:
                 raw_outputs = list(executor.map(partial_tool_func, agent_inputs))
             for agi, raw in zip(agent_inputs, raw_outputs):
-                obs, reward, done = raw[0], raw[1], raw[2]
+                obs, reward, done, info = raw[0], raw[1], raw[2], raw[3]
                 subidx = agi['idx']
                 obs_list[subidx] = obs
                 reward_list[subidx] = reward
                 done_list[subidx] |= done
+                if "error" in info:
+                    is_error_list[subidx] = True
 
-        return obs_list, reward_list, done_list, {}
+        return obs_list, reward_list, done_list, is_error_list
 
     def reset(self, prompts, vllm_inputs, n=1, tool_using_cumulative_reward_per_turn=0.0, **kwargs):
         self.tools = []
