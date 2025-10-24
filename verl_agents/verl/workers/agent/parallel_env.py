@@ -129,6 +129,9 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     agent_sampling_params.include_stop_str_in_output = True
     max_generated_tokens = min(config.agent.single_response_max_tokens, config.response_length)
     agent_sampling_params.max_tokens = max_generated_tokens
+    tool_using_cumulative_reward_per_turn = config.agent.tool_using_cumulative_reward_per_turn
+
+    assert isinstance(tool_using_cumulative_reward_per_turn, float), "tool_using_cumulative_reward_per_turn must be a float."
 
     # support custom stop specified in dataset, like </search>, ```, etc.
     custom_stop = list(config.agent.custom_stop)
@@ -176,7 +179,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     end_reason_list = []    # Notes: for statistics use
 
     env = ParallelEnv(config.agent, tokenizer, processor)
-    env.reset(prompts, vllm_inputs, n=sampling_params.n)
+    env.reset(prompts, vllm_inputs, n=sampling_params.n, tool_using_cumulative_reward_per_turn=tool_using_cumulative_reward_per_turn)
 
     # interleaving inputs if sampling_params.n > 1
     for i in range(batch_size):
@@ -573,7 +576,7 @@ class ParallelEnv:
 
         return obs_list, reward_list, done_list, {}
 
-    def reset(self, prompts, vllm_inputs, n=1, **kwargs):
+    def reset(self, prompts, vllm_inputs, n=1, tool_using_cumulative_reward_per_turn=0.0, **kwargs):
         self.tools = []
         reset_output_list = []
         assert len(prompts) == len(vllm_inputs), f"{len(prompts)=}, {len(vllm_inputs)=}"
@@ -595,6 +598,7 @@ class ParallelEnv:
                         raw_prompt=raw_prompt, 
                         multi_modal_data=deepcopy(multi_modal_data),
                         origin_multi_modal_data=deepcopy(origin_multi_modal_data),
+                        tool_using_cumulative_reward_per_turn=tool_using_cumulative_reward_per_turn
                     )
                     self.tools.append(tool_fns)
                     reset_output_list.append(reset_output)

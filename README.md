@@ -117,6 +117,7 @@ max_num_gen_batches=0                                                           
 #################################### Other RL Parameter ##########################################
 rollout_num=8                                                                                    #
 max_turn=5                                                                                       #
+tool_using_cumulative_reward_per_turn=0.0
                                                                                                  #
 with_mm_hint=False                                                                               #
 WORLD_SIZE=1                                                                                     #
@@ -170,6 +171,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.max_turns=${max_turn} \
     actor_rollout_ref.rollout.agent.concurrent_workers=1 \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
+    actor_rollout_ref.rollout.agent.tool_using_cumulative_reward_per_turn=${tool_using_cumulative_reward_per_turn} \
     trainer.rollout_data_dir=${ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.the_first_batch_rollout_data_dir=${FIRST_ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.critic_warmup=0 \

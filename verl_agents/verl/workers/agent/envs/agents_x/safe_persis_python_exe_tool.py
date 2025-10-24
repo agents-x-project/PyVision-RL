@@ -340,11 +340,11 @@ class MultiModalPythonTool(ToolBase):
                     else:
                         obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
                     
-                    return obs, 0.1, False, {"status": "success"}
+                    return obs, self.tool_using_cumulative_reward_per_turn, False, {"status": "success"}
                 else:
                     error_msg = f"Execution error: {result.get('error', 'Unknown error')}"
                     obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
-                    return obs, 0.1, False, {"error": error_msg}
+                    return obs, self.tool_using_cumulative_reward_per_turn, False, {"error": error_msg}
             else:
                 # 非隔离模式（调试用）
                 runtime = SafeImageRuntime(messages)
@@ -357,18 +357,19 @@ class MultiModalPythonTool(ToolBase):
                     'images': runtime.captured_figures
                 }
                 obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{result['text']}</interpreter><|im_end|>\n<|im_start|>assistant\n"
-                return obs, 0.1, False, {"status": "success"}
+                return obs, self.tool_using_cumulative_reward_per_turn, False, {"status": "success"}
                 
         except Exception as e:
             error_msg = f"Tool error: {str(e)}"
             obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
             return obs, 0.0, False, {"error": str(e)}
     
-    def reset(self, raw_prompt, multi_modal_data, origin_multi_modal_data, **kwargs):
+    def reset(self, raw_prompt, multi_modal_data, origin_multi_modal_data, tool_using_cumulative_reward_per_turn,  **kwargs):
         """Reset tool state"""
         self.chatml_history = raw_prompt
         self.multi_modal_data = origin_multi_modal_data
         self._figures_count = 1
+        self.tool_using_cumulative_reward_per_turn = tool_using_cumulative_reward_per_turn
         
         # 重置持久化工作进程的状态
         if self.persistent_worker:
