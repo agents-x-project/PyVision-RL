@@ -96,39 +96,46 @@ FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
 export LLM_AS_A_JUDGE_CONFIG_PATH=./configs/llm_as_a_judge.json
 
 
-####################################################### Training Data Path Parameter ####################################################################
-                                                                                                                                                        #
-# If with mm hint in the input, the data path should be the dir path containing the parquet files.                                                      #
-PYVISION_DATASET_DIR_DEEPEYES=./rl_data/filtered_deepeyes_visual_search_parquet_files                                                                   #
-                                                                                                                                                        #
-# If without mm hint in the input, the data path should be json file path.                                                                              #
-                                                                                                                                                        #
-PYVISION_IMAGE_DATASET_WO_MM_HINT=./rl_data/deepeyes/train_data_wo_mm_hint_full_path.json                                                               #
-PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.json                                                                    #                                                                                
-                                                                                                                                                        #
-#########################################################################################################################################################
+##################################################################################################
+#                                 Training Data Path Parameter                                   #
+##################################################################################################
+                                                                                                                                                        
+# If with mm hint in the input, the data path should be the dir path containing the parquet files.                                                      
+PYVISION_DATASET_DIR_DEEPEYES=./rl_data/filtered_deepeyes_visual_search_parquet_files                                                                   
+                                                                                                                                                        
+# If without mm hint in the input, the data path should be json file path.                                                                              
+                                                                                                                                                        
+PYVISION_IMAGE_DATASET_WO_MM_HINT=./rl_data/deepeyes/train_data_wo_mm_hint_full_path.json                                                               
+PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.json                                                                                                                                                  
+                                                                                                                                                        
 
-#################################### Data Loading Parameter ######################################
+##################################################################################################
+#                                    Data Loading Parameter                                      #
+##################################################################################################
 gen_batch_size=64   
 max_video_gen_batch_size=32     # 32 might cause OOM in longvila
 gen_batch_size_align_method="up_resample_image"     # up_resample_image: resample prompts from dataloader to fill discarded prompts with video
-##################################################################################################
 
-#################################### Dynamic Sampling Parameter ##################################
+
+##################################################################################################
+#                                    Dynamic Sampling Parameter                                  #
+##################################################################################################
 enable_filter_groups=True                                                                        
 filter_groups_metric='seq_reward,hasimage,trajlength,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`                                                        
 end_reason_filter_reserve_names='DONE,EXCEED_MAX_IMAGE_NUM_32'     # Options: [ON_GONIG, DONE, OVER_LENGTH, EXCEED_MAX_TURNS, EXCEED_MAX_IMAGE_NUM_32]
 max_num_gen_batches=0                                                                            
-##################################################################################################
 
-#################################### Other RL Parameter ##########################################
+
+##################################################################################################
+#                                       Other RL Parameter                                       #
+##################################################################################################
 rollout_num=8                                                                                    
 max_turn=5                                                                                       
 tool_using_cumulative_reward_per_turn=0.0
                                                                                                  
 with_mm_hint=False                                                                               
 WORLD_SIZE=1                                                                                     
-##################################################################################################
+
 
 
 REF_MODEL_PATH=/the/path/to/your/download/sft/ckpts
