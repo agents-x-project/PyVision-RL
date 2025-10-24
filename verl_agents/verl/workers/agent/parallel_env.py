@@ -296,7 +296,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                     if 'multi_modal_data' not in vllm_input_list[idx].keys():
                         vllm_input_list[idx]['multi_modal_data'] = {"image": []}
                     vllm_input_list[idx]['multi_modal_data']['image'] += mm_data['image']
-                    hasimage_list[idx] = True
+                    # hasimage_list[idx] = True
                     if len(vllm_input_list[idx]['multi_modal_data']['image']) >= 32:
                         active_mask[idx] = False
                         end_reason_list[idx] = EndReasonEnum.EXCEED_MAX_IMAGE_NUM_32
@@ -305,6 +305,9 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 mm_input = obs.get('multi_modal_inputs', {})
                 if mm_input:
                     mm_input_list[idx] = _merge_multi_modal_inputs(mm_input_list[idx], mm_input)
+                    if 'pixel_values' in mm_input_list[idx] and mm_input_list[idx]['pixel_values']:
+                        hasimage_list[idx] = True
+
 
             if running_states[idx].shape[-1] >= max_total_length or len(vllm_input_list[idx]['prompt_token_ids']) >= max_total_length:
                 active_mask[idx] = False
