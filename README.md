@@ -132,6 +132,7 @@ max_num_gen_batches=0
 rollout_num=8                                                                                    
 max_turn=5                                                                                       
 tool_using_cumulative_reward_per_turn=0.0
+concurrent_workers=64  # the worker num used for vlm-env interaction
                                                                                                  
 with_mm_hint=False                                                                               
 WORLD_SIZE=1                                                                                     
@@ -187,7 +188,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.tool_name_key=env_name \
     actor_rollout_ref.rollout.agent.single_response_max_tokens=10240 \
     actor_rollout_ref.rollout.agent.max_turns=${max_turn} \
-    actor_rollout_ref.rollout.agent.concurrent_workers=1 \
+    actor_rollout_ref.rollout.agent.concurrent_workers=${concurrent_workers} \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
     actor_rollout_ref.rollout.agent.tool_using_cumulative_reward_per_turn=${tool_using_cumulative_reward_per_turn} \
     trainer.rollout_data_dir=${ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
