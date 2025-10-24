@@ -116,7 +116,6 @@ max_num_gen_batches=0                                                           
 
 #################################### Other RL Parameter ##########################################
 rollout_num=8                                                                                    #
-interaction_budget=4                                                                             #
 max_turn=5                                                                                       #
                                                                                                  #
 with_mm_hint=False                                                                               #
@@ -163,7 +162,6 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.enable_chunked_prefill=False \
     actor_rollout_ref.actor.fsdp_config.param_offload=True \
     actor_rollout_ref.actor.fsdp_config.optimizer_offload=True \
-    actor_rollout_ref.actor.interaction_budget=${interaction_budget} \
     actor_rollout_ref.ref.log_prob_micro_batch_size_per_gpu=8 \
     actor_rollout_ref.ref.fsdp_config.param_offload=True \
     actor_rollout_ref.rollout.agent.activate_agent=True \
