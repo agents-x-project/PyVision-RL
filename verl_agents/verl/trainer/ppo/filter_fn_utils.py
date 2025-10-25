@@ -122,7 +122,11 @@ def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
 
         end_reason_filter_reason[f"end_reason:{end_reason.name}"].append(idx)
 
-    print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+    filter_reason_str = ""
+    for key in end_reason_filter_reason:
+        filter_reason_str += f"{key}: {len(end_reason_filter_reason[key])}, "
+
+    print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs, {filter_reason_str}")
 
     new_batch = new_batch[kept_traj_idxs]
 
