@@ -123,8 +123,43 @@ def vision_token_nums_image_nums_consistent_filtering_fn(new_batch):
 
     return new_batch, vision_token_nums_image_nums_consistent_filter_reason
 
-def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
+# def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
 
+#     end_reason_filter_reserve_names = [EndReasonEnum.DONE.name]
+
+#     if extra_filtering_config is not None and "end_reason_filter_reserve_names" in extra_filtering_config:
+#         end_reason_filter_reserve_names = extra_filtering_config["end_reason_filter_reserve_names"]
+
+#     kept_traj_idxs = []
+#     end_reason_filter_reason = {}
+
+#     for idx, end_reason in enumerate(new_batch.non_tensor_batch["end_reason"]):
+#         if end_reason.name in end_reason_filter_reserve_names:
+#             kept_traj_idxs.append(idx)
+        
+#         if end_reason.name not in end_reason_filter_reason:
+#             end_reason_filter_reason[f"end_reason:{end_reason.name}"] = []
+
+#         end_reason_filter_reason[f"end_reason:{end_reason.name}"].append(idx)
+
+#     print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+
+#     new_batch = new_batch[kept_traj_idxs]
+
+#     return new_batch, end_reason_filter_reason
+
+def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
+    """
+    根据轨迹的结束原因对批次进行过滤。
+
+    参数:
+        new_batch: 原始批次数据，需支持切片操作。
+        extra_filtering_config: 可选配置字典，可包含自定义保留的结束原因列表。
+
+    返回:
+        new_batch: 过滤后的批次。
+        end_reason_filter_reason: 字典，记录每种结束原因对应的轨迹索引。
+    """
     end_reason_filter_reserve_names = [EndReasonEnum.DONE.name]
 
     if extra_filtering_config is not None and "end_reason_filter_reserve_names" in extra_filtering_config:
@@ -133,19 +168,29 @@ def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
     kept_traj_idxs = []
     end_reason_filter_reason = {}
 
+    # 遍历批次中的每个轨迹，记录其结束原因并决定是否保留
     for idx, end_reason in enumerate(new_batch.non_tensor_batch["end_reason"]):
         if end_reason.name in end_reason_filter_reserve_names:
             kept_traj_idxs.append(idx)
-        
-        if end_reason.name not in end_reason_filter_reason:
-            end_reason_filter_reason[f"end_reason:{end_reason.name}"] = []
 
-        end_reason_filter_reason[f"end_reason:{end_reason.name}"].append(idx)
+        # 统计每种结束原因出现的轨迹索引
+        key = f"end_reason:{end_reason.name}"
+        if key not in end_reason_filter_reason:
+            end_reason_filter_reason[key] = []
+        end_reason_filter_reason[key].append(idx)
 
-    print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+    # 构建详细的统计信息字符串
+    stats_parts = []
+    for key in sorted(end_reason_filter_reason.keys()):
+        count = len(end_reason_filter_reason[key])
+        stats_parts.append(f"{key}={count}")
+    stats_str = ", ".join(stats_parts)
+
+    # 打印过滤前后的轨迹数量及保留原因和统计信息
+    print(f"[INFO batch filter] end reason filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs | "
+          f"reserve_names={end_reason_filter_reserve_names} | {stats_str}")
 
     new_batch = new_batch[kept_traj_idxs]
-
     return new_batch, end_reason_filter_reason
 
 def rollout_filtering_function(new_batch, metric_name_list, extra_filtering_config=None):
