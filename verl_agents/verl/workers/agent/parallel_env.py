@@ -324,7 +324,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 mm_input = obs.get('multi_modal_inputs', {})
                 if mm_input:
                     mm_input_list[idx] = _merge_multi_modal_inputs(mm_input_list[idx], mm_input)
-                    if 'pixel_values' in mm_input_list[idx] and mm_input_list[idx]['pixel_values']:
+                    if 'pixel_values' in mm_input_list[idx] and mm_input_list[idx]['pixel_values'] is not None:
                         hasimage_list[idx] = True
 
 
