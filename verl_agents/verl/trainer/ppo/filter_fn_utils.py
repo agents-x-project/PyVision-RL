@@ -103,6 +103,26 @@ def trajlength_filtering_fn(new_batch, max_length=130000):
 
     return new_batch, trajlength_filter_reason
 
+def vision_token_nums_image_nums_consistent_filtering_fn(new_batch):
+
+    kept_traj_idxs = []
+    vision_token_nums_image_nums_consistent_filter_reason = {
+        "consis:_kept": [],
+        "consis:no_image": [],
+    }
+    for idx, consis in enumerate(new_batch.non_tensor_batch["is_vision_token_nums_image_nums_consistent"]):
+        if consis:
+            kept_traj_idxs.append(idx)
+            vision_token_nums_image_nums_consistent_filter_reason["consis:_kept"].append(idx)
+        else:
+            vision_token_nums_image_nums_consistent_filter_reason["consis:no_image"].append(idx)
+
+    print(f"[INFO batch filter] vision_token_nums_image_nums_consistent filtering: {len(new_batch)} -> {len(kept_traj_idxs)} trajs")
+
+    new_batch = new_batch[kept_traj_idxs]
+
+    return new_batch, vision_token_nums_image_nums_consistent_filter_reason
+
 def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
 
     end_reason_filter_reserve_names = [EndReasonEnum.DONE.name]
@@ -136,6 +156,9 @@ def rollout_filtering_function(new_batch, metric_name_list, extra_filtering_conf
 
     if "hasimage" in metric_name_list:
         new_batch, hasimage_filter_reason = hasimage_filtering_fn(new_batch)
+        
+    if "vtoken_images_num_consis" in metric_name_list:
+        new_batch, vision_token_nums_image_nums_consistent_filter_reason = vision_token_nums_image_nums_consistent_filtering_fn(new_batch)
 
     if "trajlength" in metric_name_list:
         new_batch, trajlength_filter_reason = trajlength_filtering_fn(new_batch)

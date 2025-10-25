@@ -121,7 +121,7 @@ gen_batch_size_align_method="up_resample_image"     # up_resample_image: resampl
 #                                    Dynamic Sampling Parameter                                  #
 ##################################################################################################
 enable_filter_groups=True                                                                        
-filter_groups_metric='seq_reward,hasimage,trajlength,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`                                                        
+filter_groups_metric='seq_reward,hasimage,trajlength,vtoken_images_num_consis,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`                                                        
 end_reason_filter_reserve_names='DONE'     # Options: [ON_GONIG, DONE, OVER_LENGTH, EXCEED_MAX_TURNS, EXCEED_MAX_IMAGE_NUM_32, ERROR_IN_ACTION]
 max_num_gen_batches=0                                                                            
 

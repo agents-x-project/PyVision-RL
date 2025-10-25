@@ -40,6 +40,17 @@ def _strip_system_block(text: str) -> str:
     result = re.sub(pattern, "", text, flags=re.S)
     return result
 
+def check_vision_tokens_num_images_num_consistency(input_ids, attention_mask, vision_start_token_id, image_grid_thw):
+    input_ids = input_ids[attention_mask == 1]
+    vision_start_indices = torch.argwhere(input_ids == vision_start_token_id)
+    vision_tokens = input_ids[vision_start_indices + 1]
+    image_token_nums = (vision_tokens == image_token_id).sum()
+    image_real_nums = len(image_grid_thw)
+    if image_token_nums == image_real_nums:
+        return True
+    else:
+        return False
+    
 
 def _concat_vllm_input(prompt_token_ids, response_token_ids, tokenizer=None):
     # NOTE: temporarily fix qwen-base oov issue
@@ -176,6 +187,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     tool_call_cnt_list = []
     hasimage_list = []
     trajlength_list = []
+    is_vision_token_nums_image_nums_consistent_list = []
 
     end_reason_list = []    # Notes: for statistics use
 
@@ -198,6 +210,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             tool_call_cnt_list.append(0)
             hasimage_list.append(False)
             trajlength_list.append(0)
+            is_vision_token_nums_image_nums_consistent_list.append(False)
 
             end_reason_list.append(EndReasonEnum.ON_GONIG)
 
@@ -352,22 +365,38 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
         position_ids_list = []
 
         for i in range(batch_size * sampling_params.n):
-            vision_position_ids = get_rope_index(
-                processor,
-                input_ids=state_tensor[i, :],
-                image_grid_thw=mm_input_list[i].get("image_grid_thw", None),
-                video_grid_thw=mm_input_list[i].get("video_grid_thw", None),
-                second_per_grid_ts=mm_input_list[i].get("second_per_grid_ts", None),
+            is_vision_tokens_num_images_num_consistent = check_vision_tokens_num_images_num_consistency(
+                input_ids=state_tensor[i, :], 
                 attention_mask=attn_mask_tensor[i, :],
-            )    
+                vision_start_token_id=processor.tokenizer.convert_tokens_to_ids("<|vision_start|>"), 
+                image_grid_thw=mm_input_list[i].get("image_grid_thw", None)
+            )
+            if is_vision_tokens_num_images_num_consistent:
+                is_vision_token_nums_image_nums_consistent_list[i] = True
+                
+                vision_position_ids = get_rope_index(
+                    processor,
+                    input_ids=state_tensor[i, :],
+                    image_grid_thw=mm_input_list[i].get("image_grid_thw", None),
+                    video_grid_thw=mm_input_list[i].get("video_grid_thw", None),
+                    second_per_grid_ts=mm_input_list[i].get("second_per_grid_ts", None),
+                    attention_mask=attn_mask_tensor[i, :],
+                )    
 
-            device = vision_position_ids.device
-            valid_mask = attn_mask_tensor[i, :].bool()
-            text_position_ids = torch.ones((1, len(state_tensor[i, :])), dtype=torch.long, device=device)
-            text_position_ids[0, valid_mask] = torch.arange(valid_mask.sum().item(), device=device)
-            position_ids = [torch.cat((text_position_ids, vision_position_ids), dim=0)]  # (1, 4, seq_length)
+                device = vision_position_ids.device
+                valid_mask = attn_mask_tensor[i, :].bool()
+                text_position_ids = torch.ones((1, len(state_tensor[i, :])), dtype=torch.long, device=device)
+                text_position_ids[0, valid_mask] = torch.arange(valid_mask.sum().item(), device=device)
+                position_ids = [torch.cat((text_position_ids, vision_position_ids), dim=0)]  # (1, 4, seq_length)
 
-            position_ids_list += position_ids
+                position_ids_list += position_ids
+            else:
+                is_vision_token_nums_image_nums_consistent_list[i] = False
+                
+                dummy_position_ids = torch.ones((1, 4, len(state_tensor[i, :])), dtype=torch.long, device=device)
+
+                position_ids_list += dummy_position_ids
+
 
         position_ids_tensor = torch.stack(position_ids_list, dim=0)      
 
@@ -413,6 +442,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             "multi_modal_inputs": mm_input_list,
             "hasimage": hasimage_list,
             "trajlength": trajlength_list,
+            "is_vision_token_nums_image_nums_consistent": is_vision_token_nums_image_nums_consistent_list,
             "end_reason": end_reason_list,
         }
     )
