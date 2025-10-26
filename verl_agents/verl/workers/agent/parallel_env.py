@@ -251,7 +251,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 end_reason_list[idx] = EndReasonEnum.OVER_LENGTH
                 continue
 
-            if is_error:
+            if is_error and config.agent.get("stop_on_error", False):
                 active_mask[idx] = False
                 end_reason_list[idx] = EndReasonEnum.ERROR_IN_ACTION
                 continue     
