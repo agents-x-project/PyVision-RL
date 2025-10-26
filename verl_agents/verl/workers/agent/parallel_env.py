@@ -40,7 +40,7 @@ def _strip_system_block(text: str) -> str:
     result = re.sub(pattern, "", text, flags=re.S)
     return result
 
-def check_vision_tokens_num_images_num_consistency(input_ids, attention_mask, vision_start_token_id, image_grid_thw):
+def check_vision_tokens_num_images_num_consistency(input_ids, attention_mask, vision_start_token_id, image_token_id, image_grid_thw):
     input_ids = input_ids[attention_mask == 1]
     vision_start_indices = torch.argwhere(input_ids == vision_start_token_id)
     vision_tokens = input_ids[vision_start_indices + 1]
@@ -369,6 +369,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 input_ids=state_tensor[i, :], 
                 attention_mask=attn_mask_tensor[i, :],
                 vision_start_token_id=processor.tokenizer.convert_tokens_to_ids("<|vision_start|>"), 
+                image_token_id=processor.tokenizer.convert_tokens_to_ids("<|image_pad|>"),
                 image_grid_thw=mm_input_list[i].get("image_grid_thw", None)
             )
             if is_vision_tokens_num_images_num_consistent:
