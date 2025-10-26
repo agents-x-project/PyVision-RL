@@ -84,6 +84,7 @@ class AdvantageEstimator(str, Enum):
 
     GAE = "gae"
     GRPO = "grpo"
+    GRPO_WITH_ENV_REWARD = "grpo_with_env_reward"
     REINFORCE_PLUS_PLUS = "reinforce_plus_plus"
     REINFORCE_PLUS_PLUS_BASELINE = "reinforce_plus_plus_baseline"
     REMAX = "remax"
@@ -192,7 +193,9 @@ def compute_response_mask(data: DataProto):
     return action_or_attn_mask[:, -response_length:]
 
 
-def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_repeat=1, norm_adv_by_std_in_grpo=True):
+# Notes: GRPO Advantage calculation
+def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_repeat=1, norm_adv_by_std_in_grpo=True,
+                      env_reward_apply_position="no_env_reward", env_reward_apply_standard="positive_adv_only"):
     # Back-compatible with trainers that do not compute response mask in fit
     if "response_mask" not in data.batch:
         data.batch["response_mask"] = compute_response_mask(data)
@@ -213,6 +216,23 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
             token_level_rewards=data.batch["token_level_rewards"],
             response_mask=data.batch["response_mask"],
             index=data.non_tensor_batch["uid"],
+            norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
+        )
+        data.batch["advantages"] = advantages
+        data.batch["returns"] = returns
+    elif adv_estimator == AdvantageEstimator.GRPO_WITH_ENV_REWARD:
+        # Extract env_reward and is_answer_right from data
+        env_reward_tensor = data.batch.get("env_reward", None)
+        is_answer_right_array = data.non_tensor_batch.get("is_answer_right", None)
+        
+        advantages, returns = core_algos.compute_grpo_with_env_reward_outcome_advantage(
+            token_level_rewards=data.batch["token_level_rewards"],
+            response_mask=data.batch["response_mask"],
+            index=data.non_tensor_batch["uid"],
+            env_reward_tensor=env_reward_tensor,
+            is_answer_right_array=is_answer_right_array,
+            env_reward_apply_position=env_reward_apply_position,
+            env_reward_apply_standard=env_reward_apply_standard,
             norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
         )
         data.batch["advantages"] = advantages
@@ -312,6 +332,7 @@ class RayPPOTrainer:
             self.use_critic = True
         elif self.config.algorithm.adv_estimator in [
             AdvantageEstimator.GRPO,
+            AdvantageEstimator.GRPO_WITH_ENV_REWARD,
             AdvantageEstimator.REINFORCE_PLUS_PLUS,
             AdvantageEstimator.REMAX,
             AdvantageEstimator.RLOO,
@@ -457,6 +478,35 @@ class RayPPOTrainer:
         if config.actor_rollout_ref.rollout.val_kwargs.do_sample:
             assert config.actor_rollout_ref.rollout.temperature > 0, (
                 "validation gen temperature should be greater than 0 when enabling do_sample"
+            )
+
+        # check env_reward configuration
+        env_reward_apply_position = config.algorithm.get("env_reward_apply_position", "no_env_reward")
+        env_reward_apply_standard = config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
+        
+        # Validate env_reward_apply_position values
+        valid_positions = ["no_env_reward", "before_advantage", "after_advantage"]
+        assert env_reward_apply_position in valid_positions, (
+            f"env_reward_apply_position must be one of {valid_positions}, got: {env_reward_apply_position}"
+        )
+        
+        # Validate env_reward_apply_standard values
+        valid_standards = ["all", "positive_adv_only", "all_reserve_sign"]
+        assert env_reward_apply_standard in valid_standards, (
+            f"env_reward_apply_standard must be one of {valid_standards}, got: {env_reward_apply_standard}"
+        )
+        
+        # If env_reward is enabled, must use GRPO_WITH_ENV_REWARD
+        if env_reward_apply_position != "no_env_reward":
+            assert config.algorithm.adv_estimator == AdvantageEstimator.GRPO_WITH_ENV_REWARD, (
+                f"When env_reward_apply_position is '{env_reward_apply_position}', "
+                f"adv_estimator must be 'grpo_with_env_reward', got: {config.algorithm.adv_estimator}"
+            )
+        
+        # If standard is "all", must use "before_advantage"
+        if env_reward_apply_standard == "all":
+            assert env_reward_apply_position == "before_advantage", (
+                "When env_reward_apply_standard is 'all', env_reward_apply_position must be 'before_advantage'"
             )
 
         print("[validate_config] All configuration checks passed successfully!")
@@ -1478,6 +1528,8 @@ class RayPPOTrainer:
                     # Compute advantages
                     with _timer("adv", timing_raw):
                         norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)
+                        env_reward_apply_position = self.config.algorithm.get("env_reward_apply_position", "no_env_reward")
+                        env_reward_apply_standard = self.config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
                         batch = compute_advantage(
                             batch,
                             adv_estimator=self.config.algorithm.adv_estimator,
@@ -1485,6 +1537,8 @@ class RayPPOTrainer:
                             lam=self.config.algorithm.lam,
                             num_repeat=self.config.actor_rollout_ref.rollout.n,
                             norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
+                            env_reward_apply_position=env_reward_apply_position,
+                            env_reward_apply_standard=env_reward_apply_standard,
                         )
 
                     # ========== Phase 3: Model updates ==========

@@ -57,15 +57,6 @@ class NaiveRewardManager:
         reward_extra_info = defaultdict(list)
 
         action_or_attn_mask = data.batch['action_mask'] if 'action_mask' in data.batch.keys() else data.batch['attention_mask']
-        # if 'env_reward' in data.batch.keys():
-        #     reward_tensor += data.batch['env_reward']
-        #     print(f' [DEBUG reward] mean={reward_tensor.mean().item()}, min={reward_tensor.min().item()}, max={reward_tensor.max().item()}')
-
-##############################################################################################################################################################
-        if 'env_reward' in data.batch.keys():
-            env_reward_tensor = data.batch['env_reward']
-            # print(f' [DEBUG reward] mean={reward_tensor.mean().item()}, min={reward_tensor.min().item()}, max={reward_tensor.max().item()}')
-##############################################################################################################################################################
 
         already_print_data_sources = {}
 
@@ -104,13 +95,6 @@ class NaiveRewardManager:
                 extra_info=extra_info,
                 llm_as_a_judge_config=self.llm_as_a_judge_config
             )
-
-            # print(f"#################### score: {score}")
-
-#############################################################################################################
-            if score['is_answer_right']:
-                reward_tensor[i] += env_reward_tensor[i]
-##############################################################################################################
 
             if isinstance(score, dict):
                 reward = score["score"]

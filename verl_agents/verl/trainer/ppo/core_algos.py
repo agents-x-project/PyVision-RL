@@ -181,6 +181,129 @@ def compute_grpo_outcome_advantage(
     return scores, scores
 
 
+def compute_grpo_with_env_reward_outcome_advantage(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    env_reward_tensor: torch.Tensor = None,
+    is_answer_right_array: np.ndarray = None,
+    env_reward_apply_position: str = "no_env_reward",
+    env_reward_apply_standard: str = "positive_adv_only",
+    epsilon: float = 1e-6,
+    norm_adv_by_std_in_grpo: bool = True,
+):
+    """
+    Compute advantage for GRPO with env_reward support, operating only on Outcome reward
+    (with only one scalar reward for each response).
+    
+    Args:
+        token_level_rewards: `(torch.Tensor)`
+            shape: (bs, response_length) - accuracy rewards
+        response_mask: `(torch.Tensor)`
+            shape: (bs, response_length)
+        index: `(np.ndarray)`
+            shape: (bs,) - uid for grouping responses by prompt
+        env_reward_tensor: `(torch.Tensor)`, optional
+            shape: (bs, response_length) - environment/tool rewards
+        is_answer_right_array: `(np.ndarray)`, optional
+            shape: (bs,) - boolean array indicating if answer is correct
+        env_reward_apply_position: `(str)`
+            "no_env_reward", "before_advantage", or "after_advantage"
+        env_reward_apply_standard: `(str)`
+            "all", "positive_adv_only", or "all_reserve_sign"
+        epsilon: `(float)`
+            small value for numerical stability
+        norm_adv_by_std_in_grpo: `(bool)`
+            whether to scale the GRPO advantage by std
+
+    Returns:
+        advantages: `(torch.Tensor)`
+            shape: (bs, response_length)
+        Returns: `(torch.Tensor)`
+            shape: (bs, response_length)
+    """
+    # Sum token-level rewards to get scalar scores
+    scores = token_level_rewards.sum(dim=-1)
+    
+    # Apply env_reward before advantage computation if configured
+    if env_reward_apply_position == "before_advantage" and env_reward_tensor is not None:
+        # Sum env_reward across response tokens to get scalar values
+        env_reward_scores = env_reward_tensor.sum(dim=-1)
+        
+        if env_reward_apply_standard == "all":
+            # Add env_reward to all samples
+            scores = scores + env_reward_scores
+        else:
+            # Only add env_reward where answer is correct
+            if is_answer_right_array is not None:
+                for i in range(len(scores)):
+                    if is_answer_right_array[i]:
+                        scores[i] = scores[i] + env_reward_scores[i]
+    
+    # Build score groups by prompt index
+    id2score = defaultdict(list)
+    id2mean = {}
+    id2std = {}
+
+    with torch.no_grad():
+        bsz = scores.shape[0]
+        for i in range(bsz):
+            id2score[index[i]].append(scores[i])
+        
+        # Compute mean and std for each prompt group
+        for idx in id2score:
+            if len(id2score[idx]) == 1:
+                id2mean[idx] = torch.tensor(0.0)
+                id2std[idx] = torch.tensor(1.0)
+            elif len(id2score[idx]) > 1:
+                id2mean[idx] = torch.mean(torch.tensor(id2score[idx]))
+                id2std[idx] = torch.std(torch.tensor([id2score[idx]]))
+            else:
+                raise ValueError(f"no score in prompt index: {idx}")
+        
+        # Compute advantages by subtracting group mean (and optionally normalizing by std)
+        for i in range(bsz):
+            if norm_adv_by_std_in_grpo:
+                scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
+            else:
+                scores[i] = scores[i] - id2mean[index[i]]
+        
+        # Apply env_reward after advantage computation if configured
+        if env_reward_apply_position == "after_advantage" and env_reward_tensor is not None:
+            # Sum env_reward across response tokens to get scalar values
+            env_reward_scores = env_reward_tensor.sum(dim=-1)
+            
+            if env_reward_apply_standard == "positive_adv_only":
+                # Only add env_reward where advantage is positive and answer is correct
+                if is_answer_right_array is not None:
+                    for i in range(bsz):
+                        if scores[i] >= 0 and is_answer_right_array[i]:
+                            scores[i] = scores[i] + env_reward_scores[i]
+            
+            elif env_reward_apply_standard == "all_reserve_sign":
+                # Add env_reward but preserve sign (negative advantages can't become positive)
+                if is_answer_right_array is not None:
+                    for i in range(bsz):
+                        if is_answer_right_array[i]:
+                            original_adv = scores[i].item()
+                            new_adv = scores[i] + env_reward_scores[i]
+                            if original_adv < 0:
+                                # For originally negative advantages, clamp to not exceed 0
+                                scores[i] = torch.min(new_adv, torch.tensor(0.0))
+                            else:
+                                # For positive advantages, no restriction
+                                scores[i] = new_adv
+            
+            elif env_reward_apply_standard == "all":
+                # This should have been caught by config validation, but add safety check
+                raise ValueError("env_reward_apply_standard='all' is only valid with env_reward_apply_position='before_advantage'")
+        
+        # Broadcast scalar advantages to all response tokens
+        scores = scores.unsqueeze(-1) * response_mask
+
+    return scores, scores
+
+
 def compute_reinforce_plus_plus_baseline_outcome_advantage(
     token_level_rewards: torch.Tensor, response_mask: torch.Tensor, index: torch.Tensor, epsilon: float = 1e-6
 ):

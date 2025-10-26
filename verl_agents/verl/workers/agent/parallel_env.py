@@ -252,7 +252,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
             action_reward = torch.zeros_like(response_token_ids, dtype=torch.float, device=reward_tensor_list[idx].device)
             reward_tensor_list[idx] = torch.cat([reward_tensor_list[idx], action_reward])
-            reward_tensor_list[idx][-1] += rew
+            reward_tensor_list[idx][-1] += rew  # Notes: give tool reward at model response seq end (?)
 
             action_mask = torch.ones_like(response_token_ids, dtype=torch.int64, device=running_action_masks[idx].device)
             running_action_masks[idx] = torch.cat([running_action_masks[idx], action_mask])
