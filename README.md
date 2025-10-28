@@ -87,12 +87,29 @@ Note: I strictly followed `verl`'s doc to start the multi-node RL training. If y
 
 PROJECT_NAME="pyvision-rl-v0"
 EXPERIMENT_NAME="pyvision-rl"
-export SAVE_CHECKPOINT_DIR=/the/path/to/save/the/rl/ckpts
-export TMPDIR="$HOME/tmp/ray"
-export WANDB_MODE=offline  # setup the wandb
 
-ROLLOUT_SAVE_DIR_PATH=./rollouts
-FIRST_ROLLOUT_SAVE_DIR_PATH=./first_rollouts
+current_time=$(date '+%m%d-%H%M%S')
+EXPERIMENT_NAME="${EXPERIMENT_NAME}-${current_time}"
+export OUTPUT_BASE_DIR="/path/to/the/training/output/${EXPERIMENT_NAME}"
+
+
+##################################################################################################
+#                                           WandB Setup                                          #
+##################################################################################################
+export WANDB_MODE=offline  # setup the wandb
+export WANDB_RUN_ID=$EXPERIMENT_NAME
+export WANDB_RESUME="allow"
+export WANDB_DIR=$OUTPUT_BASE_DIR
+
+export SAVE_CHECKPOINT_DIR="${OUTPUT_BASE_DIR}/ckpt"
+ROLLOUT_SAVE_DIR_PATH="${OUTPUT_BASE_DIR}/rollouts"
+FIRST_ROLLOUT_SAVE_DIR_PATH="${OUTPUT_BASE_DIR}/first_rollouts"
+
+mkdir -p "$OUTPUT_BASE_DIR"
+cp "$0" "$OUTPUT_BASE_DIR/"
+
+export TMPDIR="$HOME/tmp/ray"
+export HYDRA_FULL_ERROR=1
 export LLM_AS_A_JUDGE_CONFIG_PATH=./configs/llm_as_a_judge.json
 
 
@@ -135,16 +152,21 @@ tool_using_cumulative_reward_per_turn=0.0
 concurrent_workers=64  # the worker num used for vlm-env interaction
                                                                                                  
 with_mm_hint=False                                                                               
-WORLD_SIZE=1                                                                                     
-
-
+WORLD_SIZE=1  
 
 REF_MODEL_PATH=/the/path/to/your/download/sft/ckpts
+TRAIN_DATA_JSON_TOTAL="${PYVISION_IMAGE_DATASET_WO_MM_HINT},${PYVISION_VIDEO_DATASET_WO_MM_HINT}"
+
+echo "============================"
+echo "Launched Training: ${PROJECT_NAME}"
+echo "From CKPT: ${REF_MODEL_PATH}"
+echo "Datasets: ${TRAIN_DATA_JSON_TOTAL}"
+echo "============================"
 
 PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
     +vs_debug=True \
-    data.train_files=[${PYVISION_IMAGE_DATASET_WO_MM_HINT},${PYVISION_VIDEO_DATASET_WO_MM_HINT}] \
+    data.train_files=[${TRAIN_DATA_JSON_TOTAL}] \
     data.train_batch_size=64 \
     data.max_prompt_length=32000 \
     data.max_response_length=20480 \
