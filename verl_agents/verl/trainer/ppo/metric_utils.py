@@ -288,22 +288,35 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
     for source in data_source_counts.keys():
         # 获取当前source的mask
         source_mask = torch.tensor([ds == source for ds in data_source_list], device=sequence_score.device)
+        # 创建一个与advantages形状相同的source mask
+        source_mask_2d = source_mask.unsqueeze(1).expand_as(advantages)
+
+        # 使用response_mask和source_mask_2d的组合来选择advantages中的元素
+        source_advantages = torch.masked_select(advantages, source_mask_2d & response_mask)
         
         # 计算每个sequence的adv和reward
-        seq_advantages = advantages.sum(dim=-1)  # 对每个sequence的token advantages求和
         seq_rewards = sequence_reward  # 已经是sequence级别的reward
         
         # 获取当前source的指标
-        source_seq_advantages = torch.masked_select(seq_advantages, source_mask)
+        source_advantages = torch.masked_select(valid_adv, source_mask)
         source_seq_rewards = torch.masked_select(seq_rewards, source_mask)
         source_response_lengths = torch.masked_select(response_length, source_mask)
         source_obs_lengths = torch.masked_select(obs_length, source_mask)
         
+        # 计算当前source的数量
+        source_count = data_source_counts[source]
+        
+        # 计算当前source的准确率
+        source_is_correct = [is_correct_list[i] for i, ds in enumerate(data_source_list) if ds == source]
+        source_acc = sum(source_is_correct) / len(source_is_correct) if source_is_correct else 0.0
+        
         # 计算统计量
-        if len(source_seq_advantages) > 0:
-            data_source_metrics[f"data_source/{source}/adv_mean"] = torch.mean(source_seq_advantages).detach().item()
-            data_source_metrics[f"data_source/{source}/adv_max"] = torch.max(source_seq_advantages).detach().item()
-            data_source_metrics[f"data_source/{source}/adv_min"] = torch.min(source_seq_advantages).detach().item()
+        if len(source_advantages) > 0:
+            data_source_metrics[f"data_source/{source}/count"] = source_count
+            data_source_metrics[f"data_source/{source}/acc"] = source_acc
+            data_source_metrics[f"data_source/{source}/adv_mean"] = torch.mean(source_advantages).detach().item()
+            data_source_metrics[f"data_source/{source}/adv_max"] = torch.max(source_advantages).detach().item()
+            data_source_metrics[f"data_source/{source}/adv_min"] = torch.min(source_advantages).detach().item()
             
             data_source_metrics[f"data_source/{source}/reward_mean"] = torch.mean(source_seq_rewards).detach().item()
             data_source_metrics[f"data_source/{source}/reward_max"] = torch.max(source_seq_rewards).detach().item()
@@ -369,10 +382,6 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
         "prompt_length/max": torch.max(prompt_length).detach().item(),
         "prompt_length/min": torch.min(prompt_length).detach().item(),
         "prompt_length/clip_ratio": torch.mean(torch.eq(prompt_length, max_prompt_length).float()).detach().item(),
-
-        # data source distribution
-        "data/data_source_distribution": source_ratios,
-        "data/ability_distribution": ability_ratios,
     }
     
     # 添加各data source的指标

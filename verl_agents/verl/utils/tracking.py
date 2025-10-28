@@ -142,14 +142,14 @@ class Tracking(object):
                         logger_instance.log(data=data, step=step, batch=batch, tokenizer=tokenizer)
                 else:
                     if default_backend == 'wandb':
-                        data_source_distribution = data.pop("data/data_source_distribution")
-                        ability_distribution = data.pop("data/ability_distribution")
-                        data_distribution = {
-                            "data/data_source_distribution": wandb.Histogram(list(data_source_distribution.values())),
-                            "data/ability_distribution": wandb.Histogram(list(ability_distribution.values())),
-                        }
-                        # 使用 wandb.Histogram 记录比例分布
-                        logger_instance.log(data=data_distribution, step=step)
+                        # data_source_distribution = data.pop("data/data_source_distribution")
+                        # ability_distribution = data.pop("data/ability_distribution")
+                        # data_distribution = {
+                        #     "data/data_source_distribution": wandb.Histogram(list(data_source_distribution.values())),
+                        #     "data/ability_distribution": wandb.Histogram(list(ability_distribution.values())),
+                        # }
+                        # # 使用 wandb.Histogram 记录比例分布
+                        # logger_instance.log(data=data_distribution, step=step)
                         
                         logger_instance.log(data=data, step=step)
                     else:
