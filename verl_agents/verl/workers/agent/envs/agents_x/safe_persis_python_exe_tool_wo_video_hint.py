@@ -17,6 +17,7 @@ from contextlib import redirect_stdout
 import threading
 import queue
 import time
+import gc
 from decord import VideoReader, cpu  
 
 class PersistentWorker:
@@ -199,6 +200,7 @@ class SafeImageRuntime:
 
     def __init__(self, messages=None):
         import matplotlib
+        import gc
         matplotlib.use('Agg')
         
         self._global_vars = {
@@ -208,6 +210,9 @@ class SafeImageRuntime:
         for c in self.HEADERS:
             exec(c, self._global_vars)
 
+        # 存储视频路径而不是立即加载VideoReader
+        self._video_paths = {}  # {video_clue_idx: video_path}
+        
         if messages:
             image_var_dict = {}
             image_var_idx = 0
@@ -231,23 +236,12 @@ class SafeImageRuntime:
                         raise RuntimeError("should not use image in video type dataset")
 
                     elif item.get('type') == "video_hint_path":
-                        # print(" videos are in the messages !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-                        # 处理视频输入
+                        # 处理视频输入 - 只保存路径，不立即加载
                         video_path = item.get('video_hint_path')
                         if video_path and self._global_vars.get('_video_support', False):
-                            # 读取视频
-                            vr = VideoReader(video_path, ctx=cpu(0))
-                            image_var_dict[f"video_clue_{video_var_idx}"] = vr
-                            
-                            # 如果有采样帧信息，也处理采样帧
-                            # sampled_frames = item.get('sampled_frames', [])
-                            # for frame in sampled_frames:
-                            #     if isinstance(frame, Image.Image):
-                            #         image_var_dict[f"image_clue_{image_var_idx}"] = frame
-                            #         image_var_idx += 1
-                            
+                            # 保存视频路径，延迟加载
+                            self._video_paths[video_var_idx] = video_path
                             video_var_idx += 1
-                            # print("############################# video hint has been injected into the Python runtime. #################################")
                         else:
                             raise RuntimeError("Data not found")
                     else:
@@ -266,11 +260,29 @@ class SafeImageRuntime:
 
         modified_code = code.replace("plt.show()", "_internal_capture_plt_figure()")
         
+        # 执行前：加载所有VideoReader
+        video_readers = {}
         try:
+            for video_idx, video_path in self._video_paths.items():
+                vr = VideoReader(video_path, ctx=cpu(0))
+                video_var_name = f"video_clue_{video_idx}"
+                self._global_vars[video_var_name] = vr
+                video_readers[video_var_name] = vr
+            
+            # 执行用户代码
             exec(modified_code, self._global_vars)
+            
         except Exception as e:
             plt.close('all')
             raise e
+        finally:
+            # 执行后：立即销毁所有VideoReader，释放内存
+            for video_var_name in video_readers.keys():
+                if video_var_name in self._global_vars:
+                    del self._global_vars[video_var_name]
+            video_readers.clear()
+            # 显式触发垃圾回收，确保内存立即释放
+            gc.collect()
     
     @property
     def captured_figures(self):
