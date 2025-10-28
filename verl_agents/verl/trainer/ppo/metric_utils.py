@@ -290,15 +290,12 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
         source_mask = torch.tensor([ds == source for ds in data_source_list], device=sequence_score.device)
         # 创建一个与advantages形状相同的source mask
         source_mask_2d = source_mask.unsqueeze(1).expand_as(advantages)
-
-        # 使用response_mask和source_mask_2d的组合来选择advantages中的元素
-        source_advantages = torch.masked_select(advantages, source_mask_2d & response_mask)
         
         # 计算每个sequence的adv和reward
         seq_rewards = sequence_reward  # 已经是sequence级别的reward
         
         # 获取当前source的指标
-        source_advantages = torch.masked_select(valid_adv, source_mask)
+        source_advantages = torch.masked_select(advantages, source_mask_2d & response_mask)
         source_seq_rewards = torch.masked_select(seq_rewards, source_mask)
         source_response_lengths = torch.masked_select(response_length, source_mask)
         source_obs_lengths = torch.masked_select(obs_length, source_mask)
@@ -312,23 +309,23 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
         
         # 计算统计量
         if len(source_advantages) > 0:
-            data_source_metrics[f"data_source/{source}/count"] = source_count
-            data_source_metrics[f"data_source/{source}/acc"] = source_acc
-            data_source_metrics[f"data_source/{source}/adv_mean"] = torch.mean(source_advantages).detach().item()
-            data_source_metrics[f"data_source/{source}/adv_max"] = torch.max(source_advantages).detach().item()
-            data_source_metrics[f"data_source/{source}/adv_min"] = torch.min(source_advantages).detach().item()
+            data_source_metrics[f"data_source_count/{source}"] = source_count
+            data_source_metrics[f"data_source_acc/{source}"] = source_acc
+            data_source_metrics[f"data_source_adv/{source}/adv_mean"] = torch.mean(source_advantages).detach().item()
+            data_source_metrics[f"data_source_adv/{source}/adv_max"] = torch.max(source_advantages).detach().item()
+            data_source_metrics[f"data_source_adv/{source}/adv_min"] = torch.min(source_advantages).detach().item()
             
-            data_source_metrics[f"data_source/{source}/reward_mean"] = torch.mean(source_seq_rewards).detach().item()
-            data_source_metrics[f"data_source/{source}/reward_max"] = torch.max(source_seq_rewards).detach().item()
-            data_source_metrics[f"data_source/{source}/reward_min"] = torch.min(source_seq_rewards).detach().item()
+            data_source_metrics[f"data_source_reward/{source}/reward_mean"] = torch.mean(source_seq_rewards).detach().item()
+            data_source_metrics[f"data_source_reward/{source}/reward_max"] = torch.max(source_seq_rewards).detach().item()
+            data_source_metrics[f"data_source_reward/{source}/reward_min"] = torch.min(source_seq_rewards).detach().item()
             
-            data_source_metrics[f"data_source/{source}/response_length_mean"] = torch.mean(source_response_lengths.float()).detach().item()
-            data_source_metrics[f"data_source/{source}/response_length_max"] = torch.max(source_response_lengths).detach().item()
-            data_source_metrics[f"data_source/{source}/response_length_min"] = torch.min(source_response_lengths).detach().item()
+            data_source_metrics[f"data_source_response_length/{source}/response_length_mean"] = torch.mean(source_response_lengths.float()).detach().item()
+            data_source_metrics[f"data_source_response_length/{source}/response_length_max"] = torch.max(source_response_lengths).detach().item()
+            data_source_metrics[f"data_source_response_length/{source}/response_length_min"] = torch.min(source_response_lengths).detach().item()
             
-            data_source_metrics[f"data_source/{source}/obs_length_mean"] = torch.mean(source_obs_lengths.float()).detach().item()
-            data_source_metrics[f"data_source/{source}/obs_length_max"] = torch.max(source_obs_lengths).detach().item()
-            data_source_metrics[f"data_source/{source}/obs_length_min"] = torch.min(source_obs_lengths).detach().item()
+            data_source_metrics[f"data_source_obs_length/{source}/obs_length_mean"] = torch.mean(source_obs_lengths.float()).detach().item()
+            data_source_metrics[f"data_source_obs_length/{source}/obs_length_max"] = torch.max(source_obs_lengths).detach().item()
+            data_source_metrics[f"data_source_obs_length/{source}/obs_length_min"] = torch.min(source_obs_lengths).detach().item()
 
     metrics = {
         # score
