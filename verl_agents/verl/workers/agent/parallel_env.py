@@ -45,7 +45,10 @@ def check_vision_tokens_num_images_num_consistency(input_ids, attention_mask, vi
     vision_start_indices = torch.argwhere(input_ids == vision_start_token_id)
     vision_tokens = input_ids[vision_start_indices + 1]
     image_token_nums = (vision_tokens == image_token_id).sum()
-    image_real_nums = len(image_grid_thw)
+    try:
+        image_real_nums = len(image_grid_thw)
+    except:
+        return False
     if image_token_nums == image_real_nums:
         return True
     else:
@@ -393,6 +396,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 position_ids_list += position_ids
             else:
                 is_vision_token_nums_image_nums_consistent_list[i] = False
+                device = state_tensor.device
                 
                 dummy_position_ids = torch.ones((1, 4, len(state_tensor[i, :])), dtype=torch.long, device=device)
 

@@ -16,6 +16,7 @@ Metrics related to the PPO trainer.
 """
 
 from collections import defaultdict
+from collections import Counter
 from functools import partial
 from typing import Any, Callable, Dict, List
 
