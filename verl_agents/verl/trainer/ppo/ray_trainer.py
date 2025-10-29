@@ -199,7 +199,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
     # prepare response group
     # TODO: add other ways to estimate advantages
     if adv_estimator == AdvantageEstimator.GAE:
-        advantages, returns, samples_std_list = core_algos.compute_gae_advantage_return(
+        advantages, returns = core_algos.compute_gae_advantage_return(
             token_level_rewards=data.batch["token_level_rewards"],
             values=data.batch["values"],
             response_mask=data.batch["response_mask"],
@@ -208,9 +208,8 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
-        data.non_tensor_batch["sample_level_stds"] = samples_std_list
     elif adv_estimator == AdvantageEstimator.GRPO:
-        advantages, returns = core_algos.compute_grpo_outcome_advantage(
+        advantages, returns, samples_std_list = core_algos.compute_grpo_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
             response_mask=data.batch["response_mask"],
             index=data.non_tensor_batch["uid"],
@@ -218,6 +217,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
+        data.non_tensor_batch["sample_level_stds"] = samples_std_list
     elif adv_estimator == AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE:
         advantages, returns = core_algos.compute_reinforce_plus_plus_baseline_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
