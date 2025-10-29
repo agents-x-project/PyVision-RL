@@ -153,6 +153,7 @@ def compute_grpo_outcome_advantage(
             shape: (bs, response_length)
     """
     scores = token_level_rewards.sum(dim=-1)
+    samples_std_list = []
 
     id2score = defaultdict(list)
     id2mean = {}
@@ -174,11 +175,12 @@ def compute_grpo_outcome_advantage(
         for i in range(bsz):
             if norm_adv_by_std_in_grpo:
                 scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
+                samples_std_list.append(id2std[index[i]])
             else:
                 scores[i] = scores[i] - id2mean[index[i]]
         scores = scores.unsqueeze(-1) * response_mask
 
-    return scores, scores
+    return scores, scores, samples_std_list
 
 
 def compute_reinforce_plus_plus_baseline_outcome_advantage(

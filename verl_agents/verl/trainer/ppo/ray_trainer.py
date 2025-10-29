@@ -199,7 +199,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
     # prepare response group
     # TODO: add other ways to estimate advantages
     if adv_estimator == AdvantageEstimator.GAE:
-        advantages, returns = core_algos.compute_gae_advantage_return(
+        advantages, returns, samples_std_list = core_algos.compute_gae_advantage_return(
             token_level_rewards=data.batch["token_level_rewards"],
             values=data.batch["values"],
             response_mask=data.batch["response_mask"],
@@ -208,6 +208,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
+        data.non_tensor_batch["sample_level_stds"] = samples_std_list
     elif adv_estimator == AdvantageEstimator.GRPO:
         advantages, returns = core_algos.compute_grpo_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
@@ -1449,11 +1450,36 @@ class RayPPOTrainer:
                         if not self.config.algorithm.filter_groups.enable:
                             break
                     
-                    # Trim to exact target size if we have more than needed
-                    if accumulated_rollout_count > target_traj_bsz:
-                        accumulated_batch = accumulated_batch[:target_traj_bsz]
-                        accumulated_rollout_count = target_traj_bsz
-                    
+                    if self.config.algorithm.filter_groups.std_sort_enable:
+                        # Trim to exact target size if we have more than needed
+                        if accumulated_rollout_count > target_traj_bsz:
+                            # 1. 获取 sample_level_stds 数据
+                            sample_level_stds = accumulated_batch.non_tensor_batch["sample_level_stds"]
+                            
+                            # 2. 找到值最大的 target_traj_bsz 个样本的索引
+                            # np.argsort 返回的是排序后的索引，[::-1] 表示将其反转，得到降序排列
+                            # [:target_traj_bsz] 选取前 target_traj_bsz 个索引
+                            top_k_indices = np.argsort(sample_level_stds)[::-1][:target_traj_bsz]
+                            
+                            # 3. 根据索引筛选 accumulated_batch
+                            # 注意：这里假设 accumulated_batch 支持通过索引列表进行选择（如 PyTorch/TensorFlow 的张量或列表）
+                            # 如果 accumulated_batch 是一个列表，列表推导式是更通用的方法
+                            try:
+                                # 尝试直接索引，适用于张量或支持此操作的自定义对象
+                                new_batch = accumulated_batch[top_k_indices]
+                            except (TypeError, IndexError):
+                                # 如果直接索引失败，回退到列表推导式，更通用
+                                new_batch = [accumulated_batch[i] for i in top_k_indices]
+
+                            # 5. 更新所有相关变量
+                            accumulated_batch = new_batch
+                            accumulated_rollout_count = target_traj_bsz
+                    else:
+                        # Trim to exact target size if we have more than needed
+                        if accumulated_rollout_count > target_traj_bsz:
+                            accumulated_batch = accumulated_batch[:target_traj_bsz]
+                            accumulated_rollout_count = target_traj_bsz
+
                     print(f"Collected {accumulated_rollout_count} rollouts from {num_gen_batches_for_this_step} generation batch(es)")
                     
                     # ========== Phase 2: Process batch for training ==========
