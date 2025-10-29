@@ -180,6 +180,8 @@ def compute_grpo_outcome_advantage(
                 scores[i] = scores[i] - id2mean[index[i]]
         scores = scores.unsqueeze(-1) * response_mask
 
+    samples_std_list = np.array(samples_std_list)
+
     return scores, scores, samples_std_list
 
 
