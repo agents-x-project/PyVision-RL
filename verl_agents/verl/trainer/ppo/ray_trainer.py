@@ -1445,6 +1445,22 @@ class RayPPOTrainer:
                         
                         # Generate rollouts for this batch
                         new_batch = self._generate_and_score_batch(batch_dict, timing_raw)
+
+                        # Compute advantages
+                        with _timer("adv", timing_raw):
+                            norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)
+                            env_reward_apply_position = self.config.algorithm.get("env_reward_apply_position", "no_env_reward")
+                            env_reward_apply_standard = self.config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
+                            new_batch = compute_advantage(
+                                new_batch,
+                                adv_estimator=self.config.algorithm.adv_estimator,
+                                gamma=self.config.algorithm.gamma,
+                                lam=self.config.algorithm.lam,
+                                num_repeat=self.config.actor_rollout_ref.rollout.n,
+                                norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
+                                env_reward_apply_position=env_reward_apply_position,
+                                env_reward_apply_standard=env_reward_apply_standard,
+                            )
                         
                         # Store the first batch for logging
                         if first_gen_batch is None:
@@ -1496,7 +1512,7 @@ class RayPPOTrainer:
                     # ========== Phase 2: Process batch for training ==========
                     batch = accumulated_batch
 
-                    batch.batch["response_mask"] = compute_response_mask(batch)
+                    # batch.batch["response_mask"] = compute_response_mask(batch)
                     # balance the number of valid tokens on each dp rank.
                     # Note that this breaks the order of data inside the batch.
                     # Please take care when you implement group based adv computation such as GRPO and rloo
@@ -1525,21 +1541,17 @@ class RayPPOTrainer:
                             ref_log_prob = self.ref_policy_wg.compute_ref_log_prob(batch)
                             batch = batch.union(ref_log_prob)
 
-                    # Compute advantages
-                    with _timer("adv", timing_raw):
-                        norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)
-                        env_reward_apply_position = self.config.algorithm.get("env_reward_apply_position", "no_env_reward")
-                        env_reward_apply_standard = self.config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
-                        batch = compute_advantage(
-                            batch,
-                            adv_estimator=self.config.algorithm.adv_estimator,
-                            gamma=self.config.algorithm.gamma,
-                            lam=self.config.algorithm.lam,
-                            num_repeat=self.config.actor_rollout_ref.rollout.n,
-                            norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
-                            env_reward_apply_position=env_reward_apply_position,
-                            env_reward_apply_standard=env_reward_apply_standard,
-                        )
+                    # # Compute advantages
+                    # with _timer("adv", timing_raw):
+                    #     norm_adv_by_std_in_grpo = self.config.algorithm.get("norm_adv_by_std_in_grpo", True)
+                    #     batch = compute_advantage(
+                    #         batch,
+                    #         adv_estimator=self.config.algorithm.adv_estimator,
+                    #         gamma=self.config.algorithm.gamma,
+                    #         lam=self.config.algorithm.lam,
+                    #         num_repeat=self.config.actor_rollout_ref.rollout.n,
+                    #         norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
+                    #     )
 
                     # ========== Phase 3: Model updates ==========
 

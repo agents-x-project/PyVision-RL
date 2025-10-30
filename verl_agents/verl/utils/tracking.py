@@ -21,6 +21,7 @@ from functools import partial
 from pathlib import Path
 from typing import Any, Dict, List, Union
 import os
+import wandb
 
 
 class Tracking(object):
@@ -53,17 +54,8 @@ class Tracking(object):
         if "tracking" in default_backend or "wandb" in default_backend:
             import wandb
             import os
-
-            os.environ['http_proxy'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-            os.environ['https_proxy'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-            os.environ['HTTP_PROXY'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-            os.environ['HTTPS_PROXY'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
             wandb.init(project=project_name, name=experiment_name, config=config)
             self.logger["wandb"] = wandb
-            os.environ['http_proxy'] = ""
-            os.environ['https_proxy'] = ""
-            os.environ['HTTP_PROXY'] = ""
-            os.environ['HTTPS_PROXY'] = ""
 
         if "mlflow" in default_backend:
             import os
@@ -149,15 +141,19 @@ class Tracking(object):
                     if batch is not None:
                         logger_instance.log(data=data, step=step, batch=batch, tokenizer=tokenizer)
                 else:
-                    os.environ['http_proxy'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-                    os.environ['https_proxy'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-                    os.environ['HTTP_PROXY'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-                    os.environ['HTTPS_PROXY'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-                    logger_instance.log(data=data, step=step)
-                    os.environ['http_proxy'] = ""
-                    os.environ['https_proxy'] = ""
-                    os.environ['HTTP_PROXY'] = ""
-                    os.environ['HTTPS_PROXY'] = ""
+                    if default_backend == 'wandb':
+                        # data_source_distribution = data.pop("data/data_source_distribution")
+                        # ability_distribution = data.pop("data/ability_distribution")
+                        # data_distribution = {
+                        #     "data/data_source_distribution": wandb.Histogram(list(data_source_distribution.values())),
+                        #     "data/ability_distribution": wandb.Histogram(list(ability_distribution.values())),
+                        # }
+                        # # 使用 wandb.Histogram 记录比例分布
+                        # logger_instance.log(data=data_distribution, step=step)
+                        
+                        logger_instance.log(data=data, step=step)
+                    else:
+                        logger_instance.log(data=data, step=step)
 
     def __del__(self):
         if 'wandb' in self.logger:
@@ -243,10 +239,6 @@ class ValidationGenerationsLogger:
     def log_generations_to_wandb(self, samples, step):
         """Log samples to wandb as a table"""
         import wandb
-        os.environ['http_proxy'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-        os.environ['https_proxy'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-        os.environ['HTTP_PROXY'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
-        os.environ['HTTPS_PROXY'] = "http://zhaoshitian:1gEBQdKIt8bvEDpX13EWdyThtw00WazVwRKeZAAkhx2MPoUJfUYnqXrRFTfn@10.1.20.51:23128/"
 
         # Create column names for all samples
         columns = ["step"] + sum(
@@ -272,10 +264,6 @@ class ValidationGenerationsLogger:
         # Update reference and log
         wandb.log({"val/generations": new_table}, step=step)
         self.validation_table = new_table
-        os.environ['http_proxy'] = ""
-        os.environ['https_proxy'] = ""
-        os.environ['HTTP_PROXY'] = ""
-        os.environ['HTTPS_PROXY'] = ""
 
     def log_generations_to_swanlab(self, samples, step):
         """Log samples to swanlab as text"""
