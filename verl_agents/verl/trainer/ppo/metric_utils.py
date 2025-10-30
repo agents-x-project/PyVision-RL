@@ -398,7 +398,7 @@ def compute_data_metrics(batch: DataProto, use_critic: bool = True) -> Dict[str,
             
             # 添加tool相关指标
             if has_tool_data:
-                source_tool_cnt = torch.masked_select(tool_cnt_tensor, source_mask)
+                source_tool_cnt = torch.masked_select(tool_cnt_tensor.squeeze(), source_mask)
                 if len(source_tool_cnt) > 0:
                     # 计算 0 的占比
                     source_zero_ratio = (source_tool_cnt == 0).float().mean().item()

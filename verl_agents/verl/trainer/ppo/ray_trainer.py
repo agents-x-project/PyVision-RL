@@ -1459,7 +1459,8 @@ class RayPPOTrainer:
                             # 2. 找到值最大的 target_traj_bsz 个样本的索引
                             # np.argsort 返回的是排序后的索引，[::-1] 表示将其反转，得到降序排列
                             # [:target_traj_bsz] 选取前 target_traj_bsz 个索引
-                            top_k_indices = np.argsort(sample_level_stds)[::-1][:target_traj_bsz]
+                            # top_k_indices = np.argsort(sample_level_stds)[::-1][:target_traj_bsz]
+                            top_k_indices = np.argsort(-sample_level_stds)[:target_traj_bsz]
                             
                             # 3. 根据索引筛选 accumulated_batch
                             # 注意：这里假设 accumulated_batch 支持通过索引列表进行选择（如 PyTorch/TensorFlow 的张量或列表）
