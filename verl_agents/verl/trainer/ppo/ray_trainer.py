@@ -547,7 +547,7 @@ class RayPPOTrainer:
     def _dump_generations(self, inputs, outputs, scores, reward_extra_infos_dict, dump_path):
         """Dump rollout/validation samples as JSONL."""
         os.makedirs(dump_path, exist_ok=True)
-        filename = os.path.join(dump_path, f"{self.global_steps}.jsonl")
+        filename = os.path.join(dump_path, f"{self.global_steps}.json")
 
         n = len(inputs)
         base_data = {
@@ -564,10 +564,13 @@ class RayPPOTrainer:
         lines = []
         for i in range(n):
             entry = {k: v[i] for k, v in base_data.items()}
-            lines.append(json.dumps(entry, ensure_ascii=False))
+            lines.append(entry)
+
+        # with open(filename, "w") as f:
+        #     f.write("\n".join(lines) + "\n")
 
         with open(filename, "w") as f:
-            f.write("\n".join(lines) + "\n")
+            json.dump(lines, f, ensure_ascii=False, indent=4)
 
         print(f"Dumped generations to {filename}")
 
@@ -593,8 +596,8 @@ class RayPPOTrainer:
                 ]
         
         # Decode inputs and outputs
-        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=True)
-        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=True)
+        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=False)
+        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=False)
         scores = batch.batch["token_level_scores"].sum(-1).cpu().tolist()
         
         # Use existing dump method
