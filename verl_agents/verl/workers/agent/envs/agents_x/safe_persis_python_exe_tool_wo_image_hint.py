@@ -301,7 +301,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
                 
                 if result['status'] == 'success':
                     exec_result = result['result']
-                    obs_content = exec_result.get('text', 'None')
+                    obs_content = exec_result.get('text', None)
                     
                     if 'images' in exec_result and exec_result['images']:
                         images = [self._base64_to_image(img) for img in exec_result['images']]
@@ -327,12 +327,12 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
                         if obs_content is None:
                             content_prefix = [
                                 {"type": "text", "text": "<interpreter>"},
-                                {"type": "text", "text": "Image Result:\n"},
+                                {"type": "text", "text": "\nImage Result:\n"},
                             ]
                         else:
                             content_prefix = [
                                 {"type": "text", "text": "<interpreter>"},
-                                {"type": "text", "text": f"Text Result:\n{obs_content}\n"},
+                                {"type": "text", "text": f"\nText Result:\n{obs_content}\n"},
                                 {"type": "text", "text": "Image Result:\n"},
                             ]
 
@@ -351,7 +351,7 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
                             "multi_modal_data": {"image": [img for img in images if img]}
                         }
                     else:
-                        obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+                        obs = f"\n<|im_start|>observation\n<interpreter>\nText Result:\n{obs_content}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
                     
                     return obs, self.tool_using_cumulative_reward_per_turn, False, {"status": "success"}
                 else:

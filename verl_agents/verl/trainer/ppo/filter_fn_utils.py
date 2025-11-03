@@ -10,7 +10,7 @@ from pprint import pprint
 from typing import Dict, Type
 import numpy as np
 
-from verl_agents.verl.workers.agent.parallel_env import EndReasonEnum
+from verl.workers.agent.parallel_env import EndReasonEnum
 
 def dynamic_sampling_fn(new_batch):
 
@@ -83,7 +83,7 @@ def hasimage_filtering_fn(new_batch):
 
     return new_batch, hasimage_filter_reason
 
-def trajlength_filtering_fn(new_batch, max_length=130000):
+def trajlength_filtering_fn(new_batch, max_length=128000):
 
     kept_traj_idxs = []
     trajlength_filter_reason = {
