@@ -214,6 +214,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
             trajlength_list.append(0)
 
             end_reason_list.append(EndReasonEnum.ON_GONIG)
+            is_vision_token_nums_image_nums_consistent_list.append(False)
 
     pg = vllm_ps.get_tp_group()
     max_total_length = config.prompt_length + config.response_length
