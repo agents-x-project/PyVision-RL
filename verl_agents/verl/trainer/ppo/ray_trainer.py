@@ -226,7 +226,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         env_reward_tensor = data.batch.get("env_reward", None)
         is_answer_right_array = data.non_tensor_batch.get("is_answer_right", None)
         
-        advantages, returns = core_algos.compute_grpo_with_env_reward_outcome_advantage(
+        advantages, returns, samples_std_list = core_algos.compute_grpo_with_env_reward_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
             response_mask=data.batch["response_mask"],
             index=data.non_tensor_batch["uid"],
@@ -238,6 +238,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
+        data.non_tensor_batch["sample_level_stds"] = samples_std_list
     elif adv_estimator == AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE:
         advantages, returns = core_algos.compute_reinforce_plus_plus_baseline_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
