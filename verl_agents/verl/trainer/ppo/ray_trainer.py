@@ -212,7 +212,7 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
     elif adv_estimator == AdvantageEstimator.GRPO:
-        advantages, returns, samples_std_list = core_algos.compute_grpo_outcome_advantage(
+        advantages, returns = core_algos.compute_grpo_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
             response_mask=data.batch["response_mask"],
             index=data.non_tensor_batch["uid"],
@@ -220,13 +220,12 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
-        data.non_tensor_batch["sample_level_stds"] = samples_std_list
     elif adv_estimator == AdvantageEstimator.GRPO_WITH_ENV_REWARD:
         # Extract env_reward and is_answer_right from data
         env_reward_tensor = data.batch.get("env_reward", None)
         is_answer_right_array = data.non_tensor_batch.get("is_answer_right", None)
         
-        advantages, returns, samples_std_list = core_algos.compute_grpo_with_env_reward_outcome_advantage(
+        advantages, returns = core_algos.compute_grpo_with_env_reward_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
             response_mask=data.batch["response_mask"],
             index=data.non_tensor_batch["uid"],
@@ -238,7 +237,6 @@ def compute_advantage(data: DataProto, adv_estimator, gamma=1.0, lam=1.0, num_re
         )
         data.batch["advantages"] = advantages
         data.batch["returns"] = returns
-        data.non_tensor_batch["sample_level_stds"] = samples_std_list
     elif adv_estimator == AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE:
         advantages, returns = core_algos.compute_reinforce_plus_plus_baseline_outcome_advantage(
             token_level_rewards=data.batch["token_level_rewards"],
@@ -598,7 +596,7 @@ class RayPPOTrainer:
     def _dump_generations(self, inputs, outputs, scores, reward_extra_infos_dict, dump_path):
         """Dump rollout/validation samples as JSONL."""
         os.makedirs(dump_path, exist_ok=True)
-        filename = os.path.join(dump_path, f"{self.global_steps}.json")
+        filename = os.path.join(dump_path, f"{self.global_steps}.jsonl")
 
         n = len(inputs)
         base_data = {
@@ -615,13 +613,10 @@ class RayPPOTrainer:
         lines = []
         for i in range(n):
             entry = {k: v[i] for k, v in base_data.items()}
-            lines.append(entry)
-
-        # with open(filename, "w") as f:
-        #     f.write("\n".join(lines) + "\n")
+            lines.append(json.dumps(entry, ensure_ascii=False))
 
         with open(filename, "w") as f:
-            json.dump(lines, f, ensure_ascii=False, indent=4)
+            f.write("\n".join(lines) + "\n")
 
         print(f"Dumped generations to {filename}")
 
@@ -647,8 +642,8 @@ class RayPPOTrainer:
                 ]
         
         # Decode inputs and outputs
-        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=False)
-        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=False)
+        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=True)
+        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=True)
         scores = batch.batch["token_level_scores"].sum(-1).cpu().tolist()
         
         # Use existing dump method
@@ -1507,37 +1502,11 @@ class RayPPOTrainer:
                         if not self.config.algorithm.filter_groups.enable:
                             break
                     
-                    if self.config.algorithm.filter_groups.std_sort_enable:
-                        # Trim to exact target size if we have more than needed
-                        if accumulated_rollout_count > target_traj_bsz:
-                            # 1. 获取 sample_level_stds 数据
-                            sample_level_stds = accumulated_batch.non_tensor_batch["sample_level_stds"]
-                            
-                            # 2. 找到值最大的 target_traj_bsz 个样本的索引
-                            # np.argsort 返回的是排序后的索引，[::-1] 表示将其反转，得到降序排列
-                            # [:target_traj_bsz] 选取前 target_traj_bsz 个索引
-                            # top_k_indices = np.argsort(sample_level_stds)[::-1][:target_traj_bsz]
-                            top_k_indices = np.argsort(-sample_level_stds)[:target_traj_bsz]
-                            
-                            # 3. 根据索引筛选 accumulated_batch
-                            # 注意：这里假设 accumulated_batch 支持通过索引列表进行选择（如 PyTorch/TensorFlow 的张量或列表）
-                            # 如果 accumulated_batch 是一个列表，列表推导式是更通用的方法
-                            try:
-                                # 尝试直接索引，适用于张量或支持此操作的自定义对象
-                                new_batch = accumulated_batch[top_k_indices]
-                            except (TypeError, IndexError):
-                                # 如果直接索引失败，回退到列表推导式，更通用
-                                new_batch = [accumulated_batch[i] for i in top_k_indices]
-
-                            # 5. 更新所有相关变量
-                            accumulated_batch = new_batch
-                            accumulated_rollout_count = target_traj_bsz
-                    else:
-                        # Trim to exact target size if we have more than needed
-                        if accumulated_rollout_count > target_traj_bsz:
-                            accumulated_batch = accumulated_batch[:target_traj_bsz]
-                            accumulated_rollout_count = target_traj_bsz
-
+                    # Trim to exact target size if we have more than needed
+                    if accumulated_rollout_count > target_traj_bsz:
+                        accumulated_batch = accumulated_batch[:target_traj_bsz]
+                        accumulated_rollout_count = target_traj_bsz
+                    
                     print(f"Collected {accumulated_rollout_count} rollouts from {num_gen_batches_for_this_step} generation batch(es)")
                     
                     # ========== Phase 2: Process batch for training ==========

@@ -153,7 +153,6 @@ def compute_grpo_outcome_advantage(
             shape: (bs, response_length)
     """
     scores = token_level_rewards.sum(dim=-1)
-    samples_std_list = []
 
     id2score = defaultdict(list)
     id2mean = {}
@@ -175,14 +174,11 @@ def compute_grpo_outcome_advantage(
         for i in range(bsz):
             if norm_adv_by_std_in_grpo:
                 scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
-                samples_std_list.append(id2std[index[i]])
             else:
                 scores[i] = scores[i] - id2mean[index[i]]
         scores = scores.unsqueeze(-1) * response_mask
 
-    samples_std_list = np.array(samples_std_list)
-
-    return scores, scores, samples_std_list
+    return scores, scores
 
 
 def compute_grpo_with_env_reward_outcome_advantage(
@@ -228,7 +224,6 @@ def compute_grpo_with_env_reward_outcome_advantage(
     """
     # Sum token-level rewards to get scalar scores
     scores = token_level_rewards.sum(dim=-1)
-    samples_std_list = []
     
     # Apply env_reward before advantage computation if configured
     if env_reward_apply_position == "before_advantage" and env_reward_tensor is not None:
@@ -270,11 +265,8 @@ def compute_grpo_with_env_reward_outcome_advantage(
         for i in range(bsz):
             if norm_adv_by_std_in_grpo:
                 scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
-                
             else:
                 scores[i] = scores[i] - id2mean[index[i]]
-            
-            samples_std_list.append(id2std[index[i]])
         
         # Apply env_reward after advantage computation if configured
         if env_reward_apply_position == "after_advantage" and env_reward_tensor is not None:
@@ -309,9 +301,7 @@ def compute_grpo_with_env_reward_outcome_advantage(
         # Broadcast scalar advantages to all response tokens
         scores = scores.unsqueeze(-1) * response_mask
 
-    samples_std_list = np.array(samples_std_list)
-
-    return scores, scores, samples_std_list
+    return scores, scores
 
 
 def compute_reinforce_plus_plus_baseline_outcome_advantage(

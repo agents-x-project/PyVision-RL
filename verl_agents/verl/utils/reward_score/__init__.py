@@ -62,11 +62,11 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         from . import agent
         res = agent.compute_score_eval(solution_str, ground_truth)
 
-    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-2.0-standard', 'wemath-2.0-pro', 'minio3', 'vsi', 'longvila', 'wemath-pro', 'ecd']:
-        from verl.utils.reward_score import vl_agent, general_verifier
+    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-2.0-standard', 'wemath-2.0-pro', 'minio3', 'vsi', 'longvila', 'wemath-pro']:
+        from verl.utils.reward_score import vl_agent
         # print(f"################################## import the vl_agent successfully.")
+        # from . import vl_agent
         res = vl_agent.compute_score(solution_str, ground_truth, extra_info, llm_as_a_judge_config)
-        res = general_verifier.compute_score(solution_str, ground_truth, extra_info, llm_as_a_judge_config)
         # print(f"############################# reward result: {res}")
 
     elif data_source in ['vsi_numerical'] or data_source.endswith('_rule_verifiable'):
@@ -85,9 +85,9 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         res = 0.0
 
     else:
-        from verl.utils.reward_score import vl_agent, general_verifier
-        res = general_verifier.compute_score(solution_str, ground_truth, extra_info, llm_as_a_judge_config)
-        print(f"[WARNING] Reward function is not implemented for {data_source=}, fall back to general_verifier (llm as judge)")
+        from verl.utils.reward_score import vl_agent
+        res = vl_agent.compute_score(solution_str, ground_truth, extra_info, llm_as_a_judge_config)
+        print(f"[WARNING] Reward function is not implemented for {data_source=}, fall back to vl_agent (llm as judge)")
 
         # raise NotImplementedError(f"Reward function is not implemented for {data_source=}")
 

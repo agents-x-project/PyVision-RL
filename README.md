@@ -149,8 +149,7 @@ env_reward_apply_standard="positive_adv_only"
 #####################################
 #  Dynamic Sampling Parameter 
 #####################################
-enable_filter_groups=True  
-std_sort_enable=True                                                                      
+enable_filter_groups=True                                                                        
 filter_groups_metric='seq_reward,hasimage,trajlength,vtoken_images_num_consis,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`                                                        
 end_reason_filter_reserve_names='DONE'     # Options: [ON_GONIG, DONE, OVER_LENGTH, EXCEED_MAX_TURNS, EXCEED_MAX_IMAGE_NUM_32, ERROR_IN_ACTION]
 max_num_gen_batches=0                                                                            
@@ -203,7 +202,6 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.checkpoint.contents=['model','hf_model','optimizer','extra'] \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=1 \
     algorithm.filter_groups.enable=${enable_filter_groups} \
-    +algorithm.filter_groups.std_sort_enable=${std_sort_enable} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
     algorithm.filter_groups.metric=[${filter_groups_metric}] \
     +algorithm.filter_groups.end_reason_filter_reserve_names=[${end_reason_filter_reserve_names}] \

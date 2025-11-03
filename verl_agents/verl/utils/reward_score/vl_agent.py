@@ -6,6 +6,27 @@ import os
 
 from math_verify import parse, verify
 
+# openai_api_key = "EMPTY"
+# os.environ['LLM_AS_A_JUDGE_BASE']='http://10.140.66.34:18901/v1'
+# openai_api_base_list = [
+#     os.environ.get("LLM_AS_A_JUDGE_BASE"),
+# ]
+# os.environ['NO_PROXY_IP'] = '10.140.66.34:18901'
+# os.environ['no_proxy'] = os.environ.get("NO_PROXY_IP")
+
+# client_list = []
+# for api_base in openai_api_base_list:
+#     client = OpenAI(
+#         api_key=openai_api_key,
+#         base_url=api_base,
+#     )
+#     client_list.append(client)
+# model_name_list = []
+# for client in client_list:
+#     model_name_list = ['judge']
+
+
+
 def get_chat_template():
     chat_template = """
 Below are two answers to a question. Question is [Question], [Standard Answer] is the standard answer to the question, and [Model_answer] is the answer extracted from a model's output to this question.  Determine whether these two answers are consistent.
