@@ -653,5 +653,19 @@ class ParallelEnv:
         print(f' [DEBUG agent] {num_agent=}, {num_non_agent=}')
         return reset_output_list
 
+    # def close(self):
+    #     self.tools = []
+
     def close(self):
+        # 正确关闭每个工具
+        for tool in self.tools:
+            if tool is not None and hasattr(tool, 'close'):
+                tool.close()
+            elif tool is not None and hasattr(tool, '__del__'):
+                tool.__del__()
+        
+        # 清理所有状态
         self.tools = []
+        self.config = None
+        self.tokenizer = None
+        self.processor = None

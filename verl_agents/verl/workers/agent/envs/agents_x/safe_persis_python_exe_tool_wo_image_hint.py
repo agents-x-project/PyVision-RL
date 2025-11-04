@@ -389,11 +389,16 @@ class MultiModalPythonTool_wo_Image_Hint(ToolBase):
         if self.persistent_worker:
             messages = self._convert_to_messages_wo_image_hint(origin_multi_modal_data)
             self.persistent_worker.reset_runtime(messages)
+
+    def close(self):
+        """显式关闭工具资源"""
+        if self.persistent_worker:
+            self.persistent_worker.terminate()
+            self.persistent_worker = None
     
     def __del__(self):
         """清理资源"""
-        if self.persistent_worker:
-            self.persistent_worker.terminate()
+        self.close()  # 调用显式关闭方法
     
     def _convert_to_messages(self, multi_modal_data):
         """Convert multi_modal_data to messages format"""
