@@ -260,6 +260,9 @@ class vLLMRollout(BaseRollout):
 
         do_sample = prompts.meta_info.get("do_sample", True)
         is_validate = prompts.meta_info.get("validate", False)
+        max_turn_of_validation = prompts.meta_info.get("max_turn_of_validation", None)
+        print(f"########################## data meta-info: {prompts.meta_info}")
+        print(f"########################## is validate: {is_validate}")
         if not do_sample:
             kwargs = {
                 "best_of": 1,
@@ -276,7 +279,9 @@ class vLLMRollout(BaseRollout):
                 "top_p": self.config.val_kwargs.top_p,
                 "temperature": self.config.val_kwargs.temperature,
                 "n": 1,  # if validate, already repeat in ray_trainer
+                "max_turn_of_validation": max_turn_of_validation
             }
+            # self.sampling_params.n = 1
 
         # users can customize different sampling_params at different run
         with self.update_sampling_params(**kwargs):
@@ -287,7 +292,8 @@ class vLLMRollout(BaseRollout):
                     vllm_inputs=vllm_inputs, 
                     prompts=prompts,
                     multi_modal_inputs=non_tensor_batch.get("multi_modal_inputs", None),
-                    sampling_params=self.sampling_params
+                    sampling_params=self.sampling_params,
+                    max_turn_of_validation=max_turn_of_validation
                 )
                 response = agent_proto.batch.pop('response')
             else:

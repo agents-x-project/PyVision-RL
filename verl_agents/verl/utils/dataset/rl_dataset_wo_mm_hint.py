@@ -19,6 +19,8 @@ from collections import defaultdict
 from typing import List, Optional, Union
 import json
 from PIL import Image
+import base64
+from io import BytesIO
 
 import datasets
 import numpy as np
@@ -32,6 +34,87 @@ from pathlib import Path
 
 import verl.utils.torch_functional as verl_F
 from verl.utils.model import compute_position_id_with_mask
+
+def encode_image(image):
+    """
+    Convert a PIL.Image object or image file path to base64-encoded string, and get resolution info.
+    
+    Args:
+        image: Can be a PIL.Image object or image file path.
+    Returns:
+        dict with keys:
+        - 'base64': base64-encoded string
+        - 'width': width in pixels
+        - 'height': height in pixels
+        - 'resolution': string "widthxheight"
+    """
+    img_obj = None
+    
+    if isinstance(image, str):
+        # Handle file path
+        img_obj = Image.open(image)
+        with open(image, "rb") as image_file:
+            base64_str = base64.b64encode(image_file.read()).decode('utf-8')
+    else:
+        # Handle PIL.Image object
+        img_obj = image
+        buffered = BytesIO()
+        image.save(buffered, format='PNG')
+        base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
+    width, height = img_obj.size
+    
+    return {
+        'base64': base64_str,
+        'width': width,
+        'height': height
+    }
+
+
+def transfer_to_rl_form(data_list):
+    if "mm_hint" in data_list[0]:
+        return data_list
+    else:
+        rl_template_list = json.load(open("./verl/utils/dataset/rl_system_prompt_template.json", "r"))
+        prompt_prefix = rl_template_list['vis_tool_with_img_info_wo_init_image_v2']
+        new_data_list = []
+        for item in data_list:
+
+            image_path = item['image_path']
+            question = item['question']
+            answer = item['answer']
+
+            img_result = encode_image(image_path)
+            image_base64 = img_result['base64']
+            width = img_result['width']
+            height = img_result['height']
+
+            image_info_text = (
+                f"Image Width: {width}; Image Height: {height}\n"
+                f"The original image hint has been read into the global variable `image_hint_0`."
+            )
+            prompt = prompt_prefix.format(query=question, image_info=image_info_text)
+
+            new_item = {}
+            new_item['prompt'] = [{"content": prompt, "role": "user"}]
+            new_item['data_source'] = item['data_source']
+            new_item['ability'] = item['ability']
+            new_item['env_name'] = "pyvision_gym_wo_image_hint"
+            new_item['reward_model'] = {"ground_truth": answer, "style": "model"}
+            new_item['extra_info'] = {
+                "answer": answer,
+                "index": int(item['id']),
+                "question": question,
+                "split": "train"
+            }
+            new_item['mm_hint'] = {
+                "hint_path": image_path,
+                "hint_type": "image"
+            }
+
+            new_data_list.append(new_item)
+
+        return new_data_list
 
 def process_prompt_init(question, image_path, tokenizer, prompt_template, prompt_type):
     with open(prompt_template, "r") as fin:
@@ -138,6 +221,7 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
         dataframes = []
         for data_file_path in self.data_files:
             data_list = json.load(open(data_file_path, "r"))
+            data_list = transfer_to_rl_form(data_list)
             dataframes += data_list
 
         self.dataframe = dataframes
@@ -168,14 +252,6 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
             raw_prompt = self.processor.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
             multi_modal_data = {}
-            # origin_multi_modal_data = {
-            #     "image": None,
-            #     "video": None
-            # }
-
-            # multi_modal_data['image'] = []
-            # origin_multi_modal_data['image'] = []
-            # origin_multi_modal_data['video'] = []
             origin_multi_modal_data = {}
 
             images = None
@@ -187,20 +263,11 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
                     image = Image.open(mm_hint_path).convert("RGB")
                     origin_images = [process_raw_image(image)]
                     images = [process_image(image)]
-                    # multi_modal_data["image"] = None
-                    # origin_multi_modal_data["image"] = origin_images
                     origin_multi_modal_data = {"image": origin_images}
-                    # multi_modal_hint['mm_hint_content'] = origin_images
-                    # multi_modal_hint['mm_hint_type'] = "image"
 
                 if mm_hint_type == "video":
-                    # videos = [process_video_pyvision(mm_hint_path)]
                     videos = [mm_hint_path]
-                    # multi_modal_data["video"] = None
-                    # origin_multi_modal_data["video"] = videos
                     origin_multi_modal_data = {"video": videos}
-                    # multi_modal_hint['mm_hint_content'] = videos
-                    # multi_modal_hint['mm_hint_type'] = "video"
 
             model_inputs = self.processor(text=[raw_prompt], return_tensors="pt")
 
@@ -212,11 +279,6 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
             # There's a trap here, multi_modal_inputs has to be a dict, not BatchFeature
             row_dict['origin_multi_modal_data'] = origin_multi_modal_data
-            # row_dict["multi_modal_data"] = multi_modal_data
-            # row_dict["multi_modal_inputs"] = dict(model_inputs)
-
-            # second_per_grid_ts isn't used for training, just for mrope
-            # row_dict["multi_modal_inputs"].pop("second_per_grid_ts", None)
 
         else:
             raw_prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)

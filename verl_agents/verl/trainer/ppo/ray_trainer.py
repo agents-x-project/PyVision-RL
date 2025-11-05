@@ -50,6 +50,10 @@ from verl.trainer.ppo.metric_utils import (
     process_validation_metrics,
     reduce_metrics,
 )
+from verl.trainer.ppo.metric_utils_oversample_pool import (
+    compute_data_metrics_oversample_pool,
+    compute_agent_metrics_oversample_pool,
+)
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
 from verl.utils.dataset.rl_dataset_wo_mm_hint import RLHF_wo_mm_hint_Dataset
@@ -505,28 +509,28 @@ class RayPPOTrainer:
             sampler=sampler,
         )
 
-        # self.val_dataset = dataset_cls(
-        #     data_files=self.config.data.val_files,
-        #     tokenizer=self.tokenizer,
-        #     processor=self.processor,
-        #     config=self.config.data,
-        # )
-        # self.val_dataloader = StatefulDataLoader(
-        #     dataset=self.val_dataset,
-        #     # Validation datasets are sent to inference engines as a whole batch,
-        #     # which will schedule the memory themselves.
-        #     batch_size=len(self.val_dataset),
-        #     num_workers=8,
-        #     shuffle=False,
-        #     drop_last=False,
-        #     collate_fn=collate_fn,
-        # )
+        self.val_dataset = dataset_cls(
+            data_files=self.config.data.val_files,
+            tokenizer=self.tokenizer,
+            processor=self.processor,
+            config=self.config.data,
+        )
+        self.val_dataloader = StatefulDataLoader(
+            dataset=self.val_dataset,
+            # Validation datasets are sent to inference engines as a whole batch,
+            # which will schedule the memory themselves.
+            batch_size=len(self.val_dataset),
+            num_workers=8,
+            shuffle=False,
+            drop_last=False,
+            collate_fn=collate_fn,
+        )
 
         assert len(self.train_dataloader) >= 1
-        # assert len(self.val_dataloader) == 1, (
-        #     "Validation dataloader must have a single batch,"
-        #     + " which inference engines will schedule the memory themselves."
-        # )
+        assert len(self.val_dataloader) == 1, (
+            "Validation dataloader must have a single batch,"
+            + " which inference engines will schedule the memory themselves."
+        )
 
         print(f"Size of train dataloader: {len(self.train_dataloader)}")
 
@@ -565,9 +569,6 @@ class RayPPOTrainer:
         for i in range(n):
             entry = {k: v[i] for k, v in base_data.items()}
             lines.append(entry)
-
-        # with open(filename, "w") as f:
-        #     f.write("\n".join(lines) + "\n")
 
         with open(filename, "w") as f:
             json.dump(lines, f, ensure_ascii=False, indent=4)
@@ -641,6 +642,7 @@ class RayPPOTrainer:
         sample_inputs = []
         sample_outputs = []
         sample_scores = []
+        timing_raw = {}
 
         for test_data in self.val_dataloader:
             test_batch = DataProto.from_single_dict(test_data)
@@ -651,8 +653,8 @@ class RayPPOTrainer:
             )
 
             # we only do validation on rule-based rm
-            if self.config.reward_model.enable and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model":
-                return {}
+            # if self.config.reward_model.enable and test_batch[0].non_tensor_batch["reward_model"]["style"] == "model":
+            #     return {}
 
             # Store original inputs
             input_ids = test_batch.batch["input_ids"]
@@ -660,63 +662,79 @@ class RayPPOTrainer:
             input_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids]
             sample_inputs.extend(input_texts)
 
-            if "multi_modal_inputs" in test_batch.non_tensor_batch.keys():
-                test_gen_batch = test_batch.pop(
-                    batch_keys=['input_ids', 'attention_mask', 'position_ids'],
-                    non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'origin_multi_modal_data', 'multi_modal_inputs'],
-                )
-            else:
-                test_gen_batch = test_batch.pop(
-                    batch_keys=["input_ids", "attention_mask", "position_ids"],
-                    non_tensor_batch_keys=["raw_prompt_ids"],
-                )
-
-            if 'raw_prompt' in test_batch.non_tensor_batch.keys():
-                test_gen_batch.non_tensor_batch['raw_prompt'] = test_batch.non_tensor_batch.pop('raw_prompt')
-
-            if self.config.actor_rollout_ref.rollout.agent.activate_agent:
-                tool_name_key = self.config.actor_rollout_ref.rollout.agent.tool_name_key
-                if tool_name_key and tool_name_key in test_batch.non_tensor_batch.keys():
-                    test_gen_batch.non_tensor_batch[tool_name_key] = test_batch.non_tensor_batch.pop(tool_name_key)
-
-            test_gen_batch.meta_info = {
-                "eos_token_id": self.tokenizer.eos_token_id,
-                "pad_token_id": self.tokenizer.pad_token_id,
-                "recompute_log_prob": False,
-                "do_sample": self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
-                "validate": True,
-            }
-            print(f"test_gen_batch meta info: {test_gen_batch.meta_info}")
+            # test_batch.meta_info = {
+            #     "eos_token_id": self.tokenizer.eos_token_id,
+            #     "pad_token_id": self.tokenizer.pad_token_id,
+            #     "recompute_log_prob": False,
+            #     # "do_sample": self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
+            #     "do_sample": True,
+            #     "validate": True,
+            # }
+            # print(f"test_gen_batch meta info: {test_batch.meta_info}")
 
             # pad to be divisible by dp_size
-            test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
-            test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
+            # test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_batch, self.actor_rollout_wg.world_size)
+            # test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
+            test_batch = self._generate_and_score_batch_validation(test_batch, timing_raw)
+
+            # if "multi_modal_inputs" in test_batch.non_tensor_batch.keys():
+            #     test_gen_batch = test_batch.pop(
+            #         batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+            #         non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'origin_multi_modal_data', 'multi_modal_inputs'],
+            #     )
+            # else:
+            #     test_gen_batch = test_batch.pop(
+            #         batch_keys=["input_ids", "attention_mask", "position_ids"],
+            #         non_tensor_batch_keys=["raw_prompt_ids"],
+            #     )
+
+            # if 'raw_prompt' in test_batch.non_tensor_batch.keys():
+            #     test_gen_batch.non_tensor_batch['raw_prompt'] = test_batch.non_tensor_batch.pop('raw_prompt')
+
+            # if self.config.actor_rollout_ref.rollout.agent.activate_agent:
+            #     tool_name_key = self.config.actor_rollout_ref.rollout.agent.tool_name_key
+            #     if tool_name_key and tool_name_key in test_batch.non_tensor_batch.keys():
+            #         test_gen_batch.non_tensor_batch[tool_name_key] = test_batch.non_tensor_batch.pop(tool_name_key)
+
+            # pad to be divisible by dp_size
+            # test_gen_batch_padded, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
+            # test_output_gen_batch_padded = self.actor_rollout_wg.generate_sequences(test_gen_batch_padded)
 
             # unpad
-            test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
-            print("validation generation end")
+            # test_output_gen_batch = unpad_dataproto(test_output_gen_batch_padded, pad_size=pad_size)
+            # print("validation generation end")
 
-            # Store generated outputs
-            output_ids = test_output_gen_batch.batch["responses"]
-            output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
-            sample_outputs.extend(output_texts)
+            # # Store generated outputs
+            # output_ids = test_output_gen_batch.batch["responses"]
+            # output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
+            # sample_outputs.extend(output_texts)
 
-            test_batch = test_batch.union(test_output_gen_batch)
+            # test_batch = test_batch.union(test_output_gen_batch)
 
             # evaluate using reward_function
-            result = self.val_reward_fn(test_batch, return_dict=True)
-            reward_tensor = result["reward_tensor"]
-            scores = reward_tensor.sum(-1).cpu().tolist()
+            # result = self.val_reward_fn(test_batch, return_dict=True)
+            # reward_tensor = result["reward_tensor"]
+            # scores = reward_tensor.sum(-1).cpu().tolist()
+            is_correct = test_batch.non_tensor_batch['is_answer_right']
+            # print(f"############ is_correct: {is_correct}")
+            scores = []
+            for is_correct_item in is_correct:
+                if is_correct_item:
+                    scores.append(1.0)
+                else:
+                    scores.append(0.0)
             sample_scores.extend(scores)
+            print(f"[Val Dataset]: acc: {sum(sample_scores)/len(sample_scores)}")
+            print(f"[Val Dataset]: scores: {sample_scores}")
 
             reward_extra_infos_dict["reward"].extend(scores)
-            if "reward_extra_info" in result:
-                for key, lst in result["reward_extra_info"].items():
-                    reward_extra_infos_dict[key].extend(lst)
+            # if "reward_extra_info" in result:
+            #     for key, lst in result["reward_extra_info"].items():
+            #         reward_extra_infos_dict[key].extend(lst)
 
-            data_source_lst.append(test_batch.non_tensor_batch.get("data_source", ["unknown"] * reward_tensor.shape[0]))
+            data_source_lst.append(test_batch.non_tensor_batch.get("data_source", ["unknown"] * len(sample_scores)))
 
-        self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
+        # self._maybe_log_val_generations(inputs=sample_inputs, outputs=sample_outputs, scores=sample_scores)
 
         for key_info, lst in reward_extra_infos_dict.items():
             assert len(lst) == 0 or len(lst) == len(sample_scores), f"{key_info}: {len(lst)=}, {len(sample_scores)=}"
@@ -741,6 +759,7 @@ class RayPPOTrainer:
                     pfx = f"{metric_sec}/{data_source}/{var_name}/{metric_name}"
                     metric_dict[pfx] = metric_val
 
+        print(f"##################### validation metric dict: {metric_dict}")
         return metric_dict
 
     def init_workers(self):
@@ -1209,7 +1228,10 @@ class RayPPOTrainer:
         Returns:
             DataProto with generated responses and computed rewards
         """
-        new_batch: DataProto = DataProto.from_single_dict(batch_dict)
+        if isinstance(batch_dict, DataProto):
+            new_batch: DataProto = batch_dict
+        else:
+            new_batch: DataProto = DataProto.from_single_dict(batch_dict)
         
         # Pop keys needed for generation
         if "multi_modal_inputs" in new_batch.non_tensor_batch.keys():
@@ -1293,6 +1315,94 @@ class RayPPOTrainer:
         
         return new_batch
 
+    def _generate_and_score_batch_validation(self, batch_dict, timing_raw):
+        """
+        Generate rollouts and compute rewards for a single batch.
+        
+        Args:
+            batch_dict: Raw batch dictionary from dataloader
+            timing_raw: Dictionary to accumulate timing information
+            
+        Returns:
+            DataProto with generated responses and computed rewards
+        """
+        if isinstance(batch_dict, DataProto):
+            new_batch: DataProto = batch_dict
+        else:
+            new_batch: DataProto = DataProto.from_single_dict(batch_dict)
+
+        print(f"######### world size: {self.actor_rollout_wg.world_size}")
+        print(f"################## length of new_batch: {len(new_batch)}")
+
+        gen_batch_padded, pad_size = pad_dataproto_to_divisor(new_batch, self.actor_rollout_wg.world_size)
+        print(f"################## length of gen_batch_padded: {len(gen_batch_padded)}")
+        
+        # Pop keys needed for generation
+        if "multi_modal_inputs" in gen_batch_padded.non_tensor_batch.keys():
+            gen_batch = gen_batch_padded.pop(
+                batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'origin_multi_modal_data', 'multi_modal_inputs'],
+            )
+        else:
+            gen_batch = gen_batch_padded.pop(
+                batch_keys=["input_ids", "attention_mask", "position_ids"],
+                non_tensor_batch_keys=["raw_prompt_ids", 'origin_multi_modal_data'],
+            )
+        
+        if 'raw_prompt' in gen_batch_padded.non_tensor_batch.keys():
+            gen_batch.non_tensor_batch['raw_prompt'] = gen_batch_padded.non_tensor_batch.pop('raw_prompt')
+        
+        # Handle agent-specific keys
+        if self.config.actor_rollout_ref.rollout.agent.activate_agent:
+            tool_name_key = self.config.actor_rollout_ref.rollout.agent.tool_name_key
+            if tool_name_key and tool_name_key in gen_batch_padded.non_tensor_batch.keys():
+                gen_batch.non_tensor_batch[tool_name_key] = gen_batch_padded.non_tensor_batch.pop(tool_name_key)
+
+        gen_batch.meta_info = {
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "pad_token_id": self.tokenizer.pad_token_id,
+            "recompute_log_prob": False,
+            # "do_sample": self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
+            "do_sample": True,
+            "validate": True,
+            "max_turn_of_validation": 30
+        }
+        print(f"test_gen_batch meta info: {gen_batch.meta_info}")
+        
+        # Generate sequences
+        with _timer("gen", timing_raw):
+            gen_batch_output_padded = self.actor_rollout_wg.generate_sequences(gen_batch)
+
+        print(f"################## length of gen_batch_output_padded: {len(gen_batch_output_padded)}")
+        
+        gen_batch_output = unpad_dataproto(gen_batch_output_padded, pad_size=pad_size)
+        new_batch = unpad_dataproto(gen_batch_padded, pad_size=pad_size)
+        
+        # Assign unique IDs and repeat for multiple rollouts per prompt
+        new_batch.non_tensor_batch["uid"] = np.array(
+            [str(uuid.uuid4()) for _ in range(len(new_batch.batch))], dtype=object
+        )
+        new_batch = new_batch.union(gen_batch_output)
+        
+        # Compute rewards
+        with _timer("reward", timing_raw):
+            # Compute reward model scores if enabled
+            if self.use_rm:
+                reward_tensor = self.rm_wg.compute_rm_score(new_batch)
+                new_batch = new_batch.union(reward_tensor)
+            
+            # Compute final rewards (combining model-based and rule-based)
+            reward_result = self.reward_fn(new_batch, return_dict=True)
+            reward_tensor = reward_result["reward_tensor"]
+            reward_extra_infos_dict = reward_result["reward_extra_info"]
+            
+            new_batch.batch["token_level_scores"] = reward_tensor
+            
+            if reward_extra_infos_dict:
+                new_batch.non_tensor_batch.update({k: np.array(v) for k, v in reward_extra_infos_dict.items()})
+        
+        return new_batch
+
     def fit(self):
         """
         The training loop of PPO.
@@ -1319,7 +1429,8 @@ class RayPPOTrainer:
 
         # perform validation before training
         # currently, we only support validation using the reward_function.
-        if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
+        # if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
+        if self.config.trainer.get("val_before_train", True):
             val_metrics = self._validate()
             pprint(f"Initial validation metrics: {val_metrics}")
             logger.log(data=val_metrics, step=self.global_steps)
@@ -1349,6 +1460,7 @@ class RayPPOTrainer:
                 accumulated_rollout_count = 0
                 num_gen_batches_for_this_step = 0
                 first_gen_batch = None  # Keep the first generated batch for logging
+                oversample_data_pool = None
                 
                 # Video filtering statistics
                 total_video_samples_seen = 0
@@ -1416,6 +1528,11 @@ class RayPPOTrainer:
                         # Store the first batch for logging
                         if first_gen_batch is None:
                             first_gen_batch = new_batch
+
+                        if oversample_data_pool is None:
+                            oversample_data_pool = new_batch
+                        else:
+                            oversample_data_pool = DataProto.concat([oversample_data_pool, new_batch])
                         
                         # Apply filtering if enabled
                         if self.config.algorithm.filter_groups.enable:
@@ -1549,11 +1666,11 @@ class RayPPOTrainer:
                     # ========== Phase 4: Logging and checkpointing ==========
                     
                     # Dump first generation batch if configured
-                    if first_gen_batch is not None:
-                        first_batch_dump_dir = self.config.trainer.get("the_first_batch_rollout_data_dir", None)
-                        if first_batch_dump_dir:
-                            with _timer("dump_first_batch", timing_raw):
-                                self._dump_batch_generations(first_gen_batch, first_batch_dump_dir)
+                    if oversample_data_pool is not None:
+                        oversample_data_pool_dump_dir = self.config.trainer.get("the_oversample_data_pool_rollout_data_dir", None)
+                        if oversample_data_pool_dump_dir:
+                            with _timer("dump_oversample_data_pool", timing_raw):
+                                self._dump_batch_generations(oversample_data_pool, oversample_data_pool_dump_dir)
                     
                     # Dump accumulated/filtered batch if configured
                     rollout_dump_dir = self.config.trainer.get("rollout_data_dir", None)
@@ -1563,7 +1680,6 @@ class RayPPOTrainer:
                     
                     # Validation
                     if (
-                        self.val_reward_fn is not None
                         and self.config.trainer.test_freq > 0
                         and (is_last_step or self.global_steps % self.config.trainer.test_freq == 0)
                     ):
@@ -1584,13 +1700,16 @@ class RayPPOTrainer:
                 
                 # Add various metrics
                 metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
+                metrics.update(compute_data_metrics_oversample_pool(batch=oversample_data_pool, use_critic=self.use_critic))
+                metrics.update(compute_end_reason_metrics_oversample_pool(batch=oversample_data_pool, extra_filtering_config=extra_filtering_config))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
                 n_gpus = self.resource_pool_manager.get_n_gpus()
                 metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, n_gpus=n_gpus))
 
                 if self.config.actor_rollout_ref.rollout.agent.activate_agent:
-                    metrics.update(compute_agent_metrics(batch=batch))
+                    metrics.update(compute_agent_metrics(batch=batch))  # compute_agent_metrics_oversample_pool
+                    metrics.update(compute_agent_metrics_oversample_pool(batch=oversample_data_pool))
 
                 # Add rollout collection metrics
                 metrics["train/num_gen_batches"] = num_gen_batches_for_this_step

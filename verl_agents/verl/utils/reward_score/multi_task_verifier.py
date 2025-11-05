@@ -360,7 +360,7 @@ Judgement: 0
 
 
 def get_prompt(predict_str, ground_truth, question, data_source):
-    if data_source == "deepeyes" or data_source == "minio3":
+    if data_source == "deepeyes" or data_source == "minio3" or data_source == "vstar":
         examples = get_gpt4_score_ICE_visual_search()
     elif data_source == "ecd":
         examples = get_gpt4_score_ICE_chart()

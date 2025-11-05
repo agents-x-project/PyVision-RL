@@ -133,7 +133,7 @@ def _preprocess_multi_modal_inputs(prompt_str, processor, **kwargs):
     return vllm_input_prompt, input_ids, mm_inputs
 
 
-def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_inputs, sampling_params):
+def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_inputs, sampling_params, max_turn_of_validation=None):
     from vllm.distributed import parallel_state as vllm_ps
 
     agent_sampling_params = sampling_params.clone()
@@ -194,6 +194,8 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
     end_reason_list = []    # Notes: for statistics use
 
+    print(f"############################### sampling_parameter.n: {sampling_params.n}")
+
     env = ParallelEnv(config.agent, tokenizer, processor)
     env.reset(prompts, vllm_inputs, n=sampling_params.n, tool_using_cumulative_reward_per_turn=tool_using_cumulative_reward_per_turn)
 
@@ -219,7 +221,12 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
     pg = vllm_ps.get_tp_group()
     max_total_length = config.prompt_length + config.response_length
-    for step in range(config.agent.max_turns):
+
+    if max_turn_of_validation is not None:
+        max_turns = max_turn_of_validation
+    else:
+        max_turns = config.agent.max_turns
+    for step in range(max_turns):
         print(f' [DEBUG 000] {step=}, total={batch_size}, n={sampling_params.n}, num_active={sum(active_mask)}')
         if sum(active_mask) == 0:
             break
@@ -277,7 +284,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 end_reason_list[idx] = EndReasonEnum.DONE
                 continue
 
-            if step == config.agent.max_turns - 1:
+            if step == max_turns - 1:
                 active_mask[idx] = False
                 end_reason_list[idx] = EndReasonEnum.EXCEED_MAX_TURNS
                 continue
