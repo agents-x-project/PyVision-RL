@@ -53,6 +53,7 @@ from verl.trainer.ppo.metric_utils import (
 from verl.trainer.ppo.metric_utils_oversample_pool import (
     compute_data_metrics_oversample_pool,
     compute_agent_metrics_oversample_pool,
+    compute_end_reason_metrics_oversample_pool
 )
 from verl.utils.checkpoint.checkpoint_manager import find_latest_ckpt_path
 from verl.utils.dataset.rl_dataset import RLHFDataset, collate_fn
@@ -597,8 +598,8 @@ class RayPPOTrainer:
                 ]
         
         # Decode inputs and outputs
-        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=False)
-        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=False)
+        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=True)
+        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=True)
         scores = batch.batch["token_level_scores"].sum(-1).cpu().tolist()
         
         # Use existing dump method
@@ -1532,7 +1533,8 @@ class RayPPOTrainer:
                         if oversample_data_pool is None:
                             oversample_data_pool = new_batch
                         else:
-                            oversample_data_pool = DataProto.concat([oversample_data_pool, new_batch])
+                            # oversample_data_pool = DataProto.concat([oversample_data_pool, new_batch])
+                            pass
                         
                         # Apply filtering if enabled
                         if self.config.algorithm.filter_groups.enable:
@@ -1680,7 +1682,7 @@ class RayPPOTrainer:
                     
                     # Validation
                     if (
-                        and self.config.trainer.test_freq > 0
+                        self.config.trainer.test_freq > 0
                         and (is_last_step or self.global_steps % self.config.trainer.test_freq == 0)
                     ):
                         with _timer("testing", timing_raw):

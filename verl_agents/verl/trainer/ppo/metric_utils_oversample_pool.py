@@ -24,6 +24,7 @@ import numpy as np
 import torch
 
 from verl import DataProto
+from verl.workers.agent.parallel_env import EndReasonEnum
 
 
 def reduce_metrics(metrics: Dict[str, List[Any]]) -> Dict[str, Any]:
