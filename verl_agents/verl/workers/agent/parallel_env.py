@@ -190,7 +190,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
     tool_call_cnt_list = []
     hasimage_list = []
     trajlength_list = []
-    is_vision_token_nums_image_nums_consistent_list = []
+    # is_vision_token_nums_image_nums_consistent_list = []
     end_reason_list = []
 
     env = ParallelEnv(config.agent, tokenizer, processor)
@@ -374,7 +374,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
                 image_grid_thw=mm_input_list[i].get("image_grid_thw", None)
             )
             if is_vision_tokens_num_images_num_consistent:
-                is_vision_token_nums_image_nums_consistent_list[i] = True
+                # is_vision_token_nums_image_nums_consistent_list[i] = True
                 
                 vision_position_ids = get_rope_index(
                     processor,
@@ -393,7 +393,7 @@ def agent_rollout_loop(config, vllm_engine, vllm_inputs, prompts, multi_modal_in
 
                 position_ids_list += position_ids
             else:
-                is_vision_token_nums_image_nums_consistent_list[i] = False
+                # is_vision_token_nums_image_nums_consistent_list[i] = False
                 device = state_tensor.device
                 
                 dummy_position_ids = torch.ones((1, 4, len(state_tensor[i, :])), dtype=torch.long, device=device)

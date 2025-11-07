@@ -481,33 +481,34 @@ class RayPPOTrainer:
             )
 
         # check env_reward configuration
-        env_reward_apply_position = config.algorithm.get("env_reward_apply_position", "no_env_reward")
-        env_reward_apply_standard = config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
-        
-        # Validate env_reward_apply_position values
-        valid_positions = ["no_env_reward", "before_advantage", "after_advantage"]
-        assert env_reward_apply_position in valid_positions, (
-            f"env_reward_apply_position must be one of {valid_positions}, got: {env_reward_apply_position}"
-        )
-        
-        # Validate env_reward_apply_standard values
-        valid_standards = ["all", "positive_adv_only", "all_reserve_sign"]
-        assert env_reward_apply_standard in valid_standards, (
-            f"env_reward_apply_standard must be one of {valid_standards}, got: {env_reward_apply_standard}"
-        )
-        
-        # If env_reward is enabled, must use GRPO_WITH_ENV_REWARD
-        if env_reward_apply_position != "no_env_reward":
-            assert config.algorithm.adv_estimator == AdvantageEstimator.GRPO_WITH_ENV_REWARD, (
-                f"When env_reward_apply_position is '{env_reward_apply_position}', "
-                f"adv_estimator must be 'grpo_with_env_reward', got: {config.algorithm.adv_estimator}"
+        if config.algorithm.adv_estimator == AdvantageEstimator.GRPO_WITH_ENV_REWARD:
+            env_reward_apply_position = config.algorithm.get("env_reward_apply_position", "no_env_reward")
+            env_reward_apply_standard = config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
+            
+            # Validate env_reward_apply_position values
+            valid_positions = ["no_env_reward", "before_advantage", "after_advantage"]
+            assert env_reward_apply_position in valid_positions, (
+                f"env_reward_apply_position must be one of {valid_positions}, got: {env_reward_apply_position}"
             )
-        
-        # If standard is "all", must use "before_advantage"
-        if env_reward_apply_standard == "all":
-            assert env_reward_apply_position == "before_advantage", (
-                "When env_reward_apply_standard is 'all', env_reward_apply_position must be 'before_advantage'"
+            
+            # Validate env_reward_apply_standard values
+            valid_standards = ["all", "positive_adv_only", "all_reserve_sign"]
+            assert env_reward_apply_standard in valid_standards, (
+                f"env_reward_apply_standard must be one of {valid_standards}, got: {env_reward_apply_standard}"
             )
+            
+            # If env_reward is enabled, must use GRPO_WITH_ENV_REWARD
+            if env_reward_apply_position != "no_env_reward":
+                assert config.algorithm.adv_estimator == AdvantageEstimator.GRPO_WITH_ENV_REWARD, (
+                    f"When env_reward_apply_position is '{env_reward_apply_position}', "
+                    f"adv_estimator must be 'grpo_with_env_reward', got: {config.algorithm.adv_estimator}"
+                )
+            
+            # If standard is "all", must use "before_advantage"
+            if env_reward_apply_standard == "all":
+                assert env_reward_apply_position == "before_advantage", (
+                    "When env_reward_apply_standard is 'all', env_reward_apply_position must be 'before_advantage'"
+                )
 
         print("[validate_config] All configuration checks passed successfully!")
 
