@@ -482,7 +482,7 @@ class RayPPOTrainer:
 
         # check env_reward configuration
         env_reward_apply_position = config.algorithm.get("env_reward_apply_position", "no_env_reward")
-        env_reward_apply_standard = config.algorithm.get("env_reward_apply_standard", "positive_adv_only")
+        env_reward_apply_standard = config.algorithm.get("env_reward_apply_standard", "correct_only")
         
         # Validate env_reward_apply_position values
         valid_positions = ["no_env_reward", "before_advantage", "after_advantage"]
@@ -491,7 +491,7 @@ class RayPPOTrainer:
         )
         
         # Validate env_reward_apply_standard values
-        valid_standards = ["all", "positive_adv_only", "all_reserve_sign"]
+        valid_standards = ["all", "positive_adv_only", "all_reserve_sign", "correct_only"]
         assert env_reward_apply_standard in valid_standards, (
             f"env_reward_apply_standard must be one of {valid_standards}, got: {env_reward_apply_standard}"
         )

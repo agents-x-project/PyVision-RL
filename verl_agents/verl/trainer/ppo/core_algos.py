@@ -224,6 +224,8 @@ def compute_grpo_with_env_reward_outcome_advantage(
     """
     # Sum token-level rewards to get scalar scores
     scores = token_level_rewards.sum(dim=-1)
+    # Notes: 为了避免浮点数小数精度问题导致的本来应该相同的 scores 变成有区别使得 advatage 正负性改变, 这里对 scores 进行四舍五入
+    torch.round(scores, decimals=5)
     
     # Apply env_reward before advantage computation if configured
     if env_reward_apply_position == "before_advantage" and env_reward_tensor is not None:
@@ -233,12 +235,15 @@ def compute_grpo_with_env_reward_outcome_advantage(
         if env_reward_apply_standard == "all":
             # Add env_reward to all samples
             scores = scores + env_reward_scores
-        else:
+            
+        elif env_reward_apply_standard == "correct_only":
             # Only add env_reward where answer is correct
-            if is_answer_right_array is not None:
-                for i in range(len(scores)):
-                    if is_answer_right_array[i]:
-                        scores[i] = scores[i] + env_reward_scores[i]
+            assert is_answer_right_array is not None, "is_answer_right_array is required when env_reward_apply_standard='correct_only'"
+            for i in range(len(scores)):
+                if is_answer_right_array[i]:
+                    scores[i] = scores[i] + env_reward_scores[i]
+        else:
+            raise ValueError(f"Invalid env_reward_apply_standard: {env_reward_apply_standard}")
     
     # Build score groups by prompt index
     id2score = defaultdict(list)
@@ -274,25 +279,31 @@ def compute_grpo_with_env_reward_outcome_advantage(
             env_reward_scores = env_reward_tensor.sum(dim=-1)
             
             if env_reward_apply_standard == "positive_adv_only":
-                # Only add env_reward where advantage is positive and answer is correct
-                if is_answer_right_array is not None:
-                    for i in range(bsz):
-                        if scores[i] >= 0 and is_answer_right_array[i]:
-                            scores[i] = scores[i] + env_reward_scores[i]
+                # Only add env_reward where advantage is positive
+
+                for i in range(bsz):
+                    if scores[i] >= 0 and is_answer_right_array[i]:
+                        scores[i] = scores[i] + env_reward_scores[i]
+
+            elif env_reward_apply_standard == "correct_only":
+                # Only add env_reward where answer is correct
+                assert is_answer_right_array is not None, "is_answer_right_array is required when env_reward_apply_standard='correct_only'"
+                for i in range(bsz):
+                    if is_answer_right_array[i]:
+                        scores[i] = scores[i] + env_reward_scores[i]
             
             elif env_reward_apply_standard == "all_reserve_sign":
                 # Add env_reward but preserve sign (negative advantages can't become positive)
-                if is_answer_right_array is not None:
-                    for i in range(bsz):
-                        if is_answer_right_array[i]:
-                            original_adv = scores[i].item()
-                            new_adv = scores[i] + env_reward_scores[i]
-                            if original_adv < 0:
-                                # For originally negative advantages, clamp to not exceed 0
-                                scores[i] = torch.min(new_adv, torch.tensor(0.0))
-                            else:
-                                # For positive advantages, no restriction
-                                scores[i] = new_adv
+                for i in range(bsz):
+
+                    original_adv = scores[i].item()
+                    new_adv = scores[i] + env_reward_scores[i]
+                    if original_adv < 0:
+                        # For originally negative advantages, clamp to not exceed 0
+                        scores[i] = torch.min(new_adv, torch.tensor(0.0))
+                    else:
+                        # For positive advantages, no restriction
+                        scores[i] = new_adv
             
             elif env_reward_apply_standard == "all":
                 # This should have been caught by config validation, but add safety check
