@@ -412,14 +412,19 @@ def compute_score(predict_str: str, ground_truth: str, extra_info=None, llm_as_a
     if count_vision_1 != count_vision_2:
         is_format_error = True
 
-    predict_no_think = predict_str.split('</think>')[-1].strip()
-    count_answer_1 = predict_no_think.count("<answer>")
-    count_answer_2 = predict_no_think.count("</answer>")
+    predict_final_response = predict_str.split('</interpreter>')[-1].strip()
+    count_answer_1 = predict_final_response.count("<answer>")
+    count_answer_2 = predict_final_response.count("</answer>")
     if count_answer_1 != count_answer_2:
         is_format_error = True
 
-    # answer_text = predict_str.split("<answer>")[-1].split("</answer>")[0].strip()
     answer_text = extract_answer(predict_str)
+
+    if is_format_error:
+        reward = {}
+        reward['score'] = 0.0
+        reward['is_answer_right'] = False
+        return reward
 
     if answer_text is None:
         reward = {}
