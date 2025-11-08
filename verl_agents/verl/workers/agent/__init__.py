@@ -10,7 +10,7 @@ from .envs.mm_process_engine.visual_toolbox_v4 import VisualToolBoxV4
 from .envs.mm_process_engine.visual_toolbox_v5 import VisualToolBoxV5
 from .envs.visual_agent.vl_agent_v2 import VLAgentEnvV2
 from .envs.visual_agent.vl_agent_v3 import VLAgentEnvV3
-from .envs.agents_x.safe_persis_python_exe_tool import MultiModalPythonTool
+from .envs.agents_x.safe_persis_python_exe_tool_w_image_hint import MultiModalPythonTool
 from .envs.agents_x.safe_persis_python_exe_tool_wo_image_hint import MultiModalPythonTool_wo_Image_Hint
 from .envs.agents_x.safe_persis_python_exe_tool_wo_video_hint import MultiModalPythonTool_wo_Video_Hint
 
