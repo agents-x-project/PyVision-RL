@@ -273,7 +273,7 @@ class MultiModalPythonTool_w_Image_Hint(ToolBase):
         code = self.extract_code(action_string)
         if not code:
             error_msg = "No Python code or final answer found. There is something wrong with the format."
-            obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+            obs = f"\n<|im_start|>user\n<tool_response>\n<interpreter>Error: {error_msg}</interpreter>\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n"
             return obs, 0.0, False, {"error": "NO_CODE_NOR_ANSWER"}
         
         try:
@@ -294,7 +294,7 @@ class MultiModalPythonTool_w_Image_Hint(ToolBase):
                         images = [self._base64_to_image(img) for img in exec_result['images']]
                         if None in images:
                             error_msg = "Something wrong with processed images."
-                            obs = f"\n<|im_start|>observation\n<interpreter>Error: {error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+                            obs = f"\n<|im_start|>user\n<tool_response>\n<interpreter>\nError: {error_msg}</interpreter>\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n"
                             return obs, 0.0, False, {"error": "ERROR_WHEN_PROCESSING_IMAGES"}
                         image_content = []
                         image_clue_idx = self._figures_count
@@ -313,22 +313,22 @@ class MultiModalPythonTool_w_Image_Hint(ToolBase):
 
                         if obs_content is None:
                             content_prefix = [
-                                {"type": "text", "text": "<interpreter>"},
+                                {"type": "text", "text": "<tool_response>\n<interpreter>"},
                                 {"type": "text", "text": "Image Result:\n"},
                             ]
                         else:
                             content_prefix = [
-                                {"type": "text", "text": "<interpreter>"},
+                                {"type": "text", "text": "<tool_response>\n<interpreter>"},
                                 {"type": "text", "text": f"Text Result:\n{obs_content}\n"},
                                 {"type": "text", "text": "Image Result:\n"},
                             ]
 
                         content_suffix = [
-                            {"type": "text", "text": "</interpreter>\n"}
+                            {"type": "text", "text": "</interpreter>\n\n</tool_response>"}
                         ]
                         
                         obs_chat = [{
-                            "role": "observation",
+                            "role": "user",
                             "content": content_prefix + image_content + content_suffix
                         }]
                         
@@ -338,12 +338,12 @@ class MultiModalPythonTool_w_Image_Hint(ToolBase):
                             "multi_modal_data": {"image": [img for img in images if img]}
                         }
                     else:
-                        obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{obs_content}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+                        obs = f"\n<|im_start|>user\n<tool_response>\n<interpreter>\nText Result:\n{obs_content}</interpreter>\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n"
                     
                     return obs, self.tool_using_cumulative_reward_per_turn, False, {"status": "success"}
                 else:
                     error_msg = f"Execution error: {result.get('error', 'Unknown error')}"
-                    obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter>\n<|im_end|>\n<|im_start|>assistant\n"
+                    obs = f"\n<|im_start|>user\n<tool_response>\n<interpreter>{error_msg}</interpreter>\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n"
                     return obs, self.tool_using_cumulative_reward_per_turn, False, {"error": error_msg}
             else:
                 # 非隔离模式（调试用）
@@ -356,12 +356,12 @@ class MultiModalPythonTool_w_Image_Hint(ToolBase):
                     'text': program_io.read().strip(),
                     'images': runtime.captured_figures
                 }
-                obs = f"\n<|im_start|>observation\n<interpreter>Text Result:\n{result['text']}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+                obs = f"\n<|im_start|>user\n<tool_response>\n<interpreter>Text Result:\n{result['text']}</interpreter>\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n"
                 return obs, self.tool_using_cumulative_reward_per_turn, False, {"status": "success"}
                 
         except Exception as e:
-            error_msg = f"Tool error: {str(e)}"
-            obs = f"\n<|im_start|>observation\n<interpreter>{error_msg}</interpreter><|im_end|>\n<|im_start|>assistant\n"
+            error_msg = f"TOOL_EXECUTION_ERROR"
+            obs = f"\n<|im_start|>user\n<tool_response>\n<interpreter>{error_msg}</interpreter>\n\n</tool_response><|im_end|>\n<|im_start|>assistant\n"
             return obs, 0.0, False, {"error": "TOOL_EXECUTION_ERROR"}
     
     def reset(self, raw_prompt, multi_modal_data, origin_multi_modal_data, tool_using_cumulative_reward_per_turn,  **kwargs):
@@ -375,6 +375,12 @@ class MultiModalPythonTool_w_Image_Hint(ToolBase):
         if self.persistent_worker:
             messages = self._convert_to_messages(origin_multi_modal_data)
             self.persistent_worker.reset_runtime(messages)
+
+    def close(self):
+        """显式关闭工具资源"""
+        if self.persistent_worker:
+            self.persistent_worker.terminate()
+            self.persistent_worker = None
     
     def __del__(self):
         """清理资源"""
