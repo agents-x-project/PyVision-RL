@@ -79,6 +79,40 @@ Finally, prepare the llm-as-a-judge config file. the `api_key` is useless, just 
 After serving the llm-as-a-judge and making sure it works well, you could start to train. 
 Note: I strictly followed `verl`'s doc to start the multi-node RL training. If you want more detail, please check `verl`'s doc.
 
+#### Validation Dataset Format
+
+For image validation dataset:
+```bash
+# *_image_val_dataset.json
+[
+    {
+        "id": "0",
+        "question": "What is the material of the glove?\n(A) rubber\n(B) cotton\n(C) kevlar\n(D) leather\nAnswer with the option's letter from the given choices directly.",
+        "answer": "A",
+        "ability": "visual_search",
+        "data_source": "vstar",
+        "image_path": "/inspire/hdd/global_user/zhangkaipeng-24043/val_global/dataset/PyVision_eval/raw/vstar_bench/direct_attributes/sa_4690.jpg"
+    },
+    ...
+]
+```
+
+For video validation dataset:
+```bash
+# *_video_val_dataset.json
+[
+    {
+        "id": "0",
+        "question": "What is the material of the glove?\n(A) rubber\n(B) cotton\n(C) kevlar\n(D) leather\nAnswer with the option's letter from the given choices directly.",
+        "answer": "A",
+        "ability": "spatial_reasoning",
+        "data_source": "vsi", # or "vsi_numerical"
+        "video_path": "xxxx/xxxx.mp4"
+    },
+    ...
+]
+```
+
 #### Training Script
 ```bash
 # ./verl_agents/examples/agent/train_pyvision_rl_7b_v4.sh
@@ -123,7 +157,9 @@ PYVISION_DATASET_DIR_DEEPEYES=./rl_data/filtered_deepeyes_visual_search_parquet_
 # If without mm hint in the input, the data path should be json file path.                                                                              
                                                                                                                                                         
 PYVISION_IMAGE_DATASET_WO_MM_HINT=./rl_data/deepeyes/train_data_wo_mm_hint_full_path.json                                                               
-PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.json                                                                                                                                                  
+PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.json    
+
+MATHVISTA_BENCH=""
                                                                                                                                                         
 
 ##################################################################################################
@@ -157,6 +193,7 @@ WORLD_SIZE=1
 
 REF_MODEL_PATH=/the/path/to/your/download/sft/ckpts
 TRAIN_DATA_JSON_TOTAL="${PYVISION_IMAGE_DATASET_WO_MM_HINT},${PYVISION_VIDEO_DATASET_WO_MM_HINT}"
+TEST_DATA_JSON_TOTAL="${MATHVISTA_BENCH}"
 
 echo "============================"
 echo "Launched Training: ${PROJECT_NAME}"
@@ -168,6 +205,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     +debug=True \
     +vs_debug=True \
     data.train_files=[${TRAIN_DATA_JSON_TOTAL}] \
+    data.val_files=[${TEST_DATA_JSON_TOTAL}] \
     data.train_batch_size=64 \
     data.max_prompt_length=32000 \
     data.max_response_length=20480 \

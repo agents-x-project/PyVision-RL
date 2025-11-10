@@ -31,6 +31,7 @@ from transformers import PreTrainedTokenizer, ProcessorMixin
 import hashlib
 import torch
 from pathlib import Path
+from decord import VideoReader, cpu
 
 import verl.utils.torch_functional as verl_F
 from verl.utils.model import compute_position_id_with_mask
@@ -70,8 +71,51 @@ def encode_image(image):
         'height': height
     }
 
+def sample_frames_from_video(video_path, num_frames=8):
+    """
+    Sample frames from video uniformly.
+    
+    Args:
+        video_path: Path to video file
+        num_frames: Number of frames to sample
+        
+    Returns:
+        dict with keys:
+        - 'frames': List of PIL.Image objects
+        - 'video_length': Total number of frames in video
+        - 'fps': Frame rate of video
+        - 'width': Video width
+        - 'height': Video height
+    """
+    vr = VideoReader(video_path, ctx=cpu(0))
+    video_length = len(vr)
+    fps = vr.get_avg_fps()
+    
+    # Get video dimensions
+    first_frame = vr[0].asnumpy()
+    height, width = first_frame.shape[:2]
+    
+    # Sample frames uniformly
+    if num_frames == 0:
+        frames = []
+    else:
+        indices = np.linspace(0, video_length - 1, num_frames, dtype=int)
+        frames = []
+        
+        for idx in indices:
+            frame = vr[idx].asnumpy()
+            pil_frame = Image.fromarray(frame)
+            frames.append(pil_frame)
+    
+    return {
+        'frames': frames,
+        'video_length': video_length,
+        'fps': fps,
+        'width': width,
+        'height': height
+    }
 
-def transfer_to_rl_form(data_list):
+def transfer_to_rl_form_image(data_list):
     if "mm_hint" in data_list[0]:
         return data_list
     else:
@@ -110,6 +154,53 @@ def transfer_to_rl_form(data_list):
             new_item['mm_hint'] = {
                 "hint_path": image_path,
                 "hint_type": "image"
+            }
+
+            new_data_list.append(new_item)
+
+        return new_data_list
+
+
+def transfer_to_rl_form_video(data_list):
+    if "mm_hint" in data_list[0]:
+        return data_list
+    else:
+        rl_template_list = json.load(open("./verl/utils/dataset/rl_system_prompt_template.json", "r"))
+        prompt_prefix = rl_template_list['vis_tool_with_img_info_video_v4']
+        new_data_list = []
+        for item in data_list:
+
+            video_path = item['video_path']
+            question = item['question']
+            answer = item['answer']
+
+            video_info = sample_frames_from_video(video_path, num_frames=0)
+            video_info_text = (
+                f"Frame Width: {video_info['width']}; Frame Height: {video_info['height']};\n"
+                f"Video Length: {video_info['video_length']}; Sample FPS: {video_info['fps']:.2f}\n"
+                f"The original video has been read into the global variable `video_clue_0`."
+            )
+
+            prompt = prompt_prefix.format(
+                video_info=video_info_text,
+                query=question
+            )
+
+            new_item = {}
+            new_item['prompt'] = [{"content": prompt, "role": "user"}]
+            new_item['data_source'] = item['data_source']
+            new_item['ability'] = item['ability']
+            new_item['env_name'] = "pyvision_gym_wo_video_hint"
+            new_item['reward_model'] = {"ground_truth": answer, "style": "model"}
+            new_item['extra_info'] = {
+                "answer": answer,
+                "index": int(item['id']),
+                "question": question,
+                "split": "train"
+            }
+            new_item['mm_hint'] = {
+                "hint_path": video_path,
+                "hint_type": "video"
             }
 
             new_data_list.append(new_item)
@@ -220,8 +311,14 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
     def _read_files_and_tokenize(self):
         dataframes = []
         for data_file_path in self.data_files:
-            data_list = json.load(open(data_file_path, "r"))
-            data_list = transfer_to_rl_form(data_list)
+            if "image_val_dataset" in data_file_path:
+                data_list = json.load(open(data_file_path, "r"))
+                data_list = transfer_to_rl_form_image(data_list)
+            elif "video_val_dataset" in data_file_path:
+                data_list = json.load(open(data_file_path, "r"))
+                data_list = transfer_to_rl_form_video(data_list)    
+            else:
+                data_list = json.load(open(data_file_path, "r"))
             dataframes += data_list
 
         self.dataframe = dataframes
