@@ -597,7 +597,7 @@ class RayPPOTrainer:
     def _dump_generations(self, inputs, outputs, scores, reward_extra_infos_dict, dump_path):
         """Dump rollout/validation samples as JSONL."""
         os.makedirs(dump_path, exist_ok=True)
-        filename = os.path.join(dump_path, f"{self.global_steps}.jsonl")
+        filename = os.path.join(dump_path, f"{self.global_steps}.json")
 
         n = len(inputs)
         base_data = {
@@ -614,10 +614,10 @@ class RayPPOTrainer:
         lines = []
         for i in range(n):
             entry = {k: v[i] for k, v in base_data.items()}
-            lines.append(json.dumps(entry, ensure_ascii=False))
+            lines.append(entry)
 
         with open(filename, "w") as f:
-            f.write("\n".join(lines) + "\n")
+            json.dump(lines, f, ensure_ascii=False, indent=4)
 
         print(f"Dumped generations to {filename}")
 
@@ -1109,6 +1109,8 @@ class RayPPOTrainer:
             
             # Get a new batch from dataloader to extract image data
             try:
+                if self.global_steps % (dataloader_len) == 0 and self.global_steps > 0:
+                    dataloader_iter = iter(self.train_dataloader)
                 new_batch_dict = next(dataloader_iter)
             except StopIteration:
                 print(f"⚠️  WARNING: Cannot get new batch for resampling (dataloader exhausted)")
@@ -1256,7 +1258,10 @@ class RayPPOTrainer:
         Returns:
             DataProto with generated responses and computed rewards
         """
-        new_batch: DataProto = DataProto.from_single_dict(batch_dict)
+        if isinstance(batch_dict, DataProto):
+            new_batch: DataProto = batch_dict
+        else:
+            new_batch: DataProto = DataProto.from_single_dict(batch_dict)
         
         # Pop keys needed for generation
         if "multi_modal_inputs" in new_batch.non_tensor_batch.keys():
@@ -1380,8 +1385,12 @@ class RayPPOTrainer:
         self.global_steps += 1
         last_val_metrics = None
 
+        dataloader_len = len(self.train_dataloader)
+        print(f"################## dataloader length: {dataloader_len}")
+
         for epoch in range(self.config.trainer.total_epochs):
             dataloader_iter = iter(self.train_dataloader)
+            print(f"############## start training on epoch: {epoch}")
             
             while True:
                 # Check if training is complete
@@ -1419,6 +1428,8 @@ class RayPPOTrainer:
                     while accumulated_rollout_count < target_traj_bsz:
                         # Get next batch from dataloader
                         try:
+                            if self.global_steps % (dataloader_len) == 0 and self.global_steps > 0:
+                                dataloader_iter = iter(self.train_dataloader)
                             batch_dict = next(dataloader_iter)
                         except StopIteration:
                             # Dataloader exhausted, should not happen if total_training_steps is set correctly
