@@ -1082,17 +1082,19 @@ class RayPPOTrainer:
             
             # Get a new batch from dataloader to extract image data
             try:
-                if self.global_steps % (dataloader_len) == 0 and self.global_steps > 0:
-                    dataloader_iter = iter(self.train_dataloader)
+                # if self.global_steps % (dataloader_len) == 0 and self.global_steps > 0:
+                #     dataloader_iter = iter(self.train_dataloader)
                 new_batch_dict = next(dataloader_iter)
-            except StopIteration:
-                print(f"⚠️  WARNING: Cannot get new batch for resampling (dataloader exhausted)")
-                return batch_dict, {
-                    "method": method,
-                    "original_size": current_size,
-                    "aligned_size": current_size,
-                    "changed": False
-                }
+            except:
+                dataloader_iter = iter(self.train_dataloader)
+                batch_dict = next(dataloader_iter)
+                # print(f"⚠️  WARNING: Cannot get new batch for resampling (dataloader exhausted)")
+                # return batch_dict, {
+                #     "method": method,
+                #     "original_size": current_size,
+                #     "aligned_size": current_size,
+                #     "changed": False
+                # }
             
             # Identify image samples in the new batch
             image_indices = []
@@ -1450,6 +1452,8 @@ class RayPPOTrainer:
         dataloader_len = len(self.train_dataloader)
         print(f"################## dataloader length: {dataloader_len}")
 
+        num_epoch = 0
+
         for epoch in range(self.config.trainer.total_epochs):
             dataloader_iter = iter(self.train_dataloader)
             print(f"############## start training on epoch: {epoch}")
@@ -1494,12 +1498,15 @@ class RayPPOTrainer:
                     while accumulated_rollout_count < target_traj_bsz:
                         # Get next batch from dataloader
                         try:
-                            if self.global_steps % (dataloader_len) == 0 and self.global_steps > 0:
-                                dataloader_iter = iter(self.train_dataloader)
+                            # if self.global_steps % (dataloader_len) == 0 and self.global_steps > 0:
+                            #     dataloader_iter = iter(self.train_dataloader)
                             batch_dict = next(dataloader_iter)
-                        except StopIteration:
+                        except:
                             # Dataloader exhausted, should not happen if total_training_steps is set correctly
-                            break
+                            dataloader_iter = iter(self.train_dataloader)
+                            batch_dict = next(dataloader_iter)
+                            num_epoch += 1
+                            # break
                         
                         num_gen_batches_for_this_step += 1
                         
@@ -1727,6 +1734,7 @@ class RayPPOTrainer:
                 # Add rollout collection metrics
                 metrics["train/num_gen_batches"] = num_gen_batches_for_this_step
                 metrics["train/accumulated_rollout_count"] = accumulated_rollout_count
+                metrics["train/num_epoch"] = num_epoch
                 
                 # Add video filtering metrics
                 if total_video_samples_seen > 0:
