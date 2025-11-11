@@ -62,7 +62,7 @@ def _default_compute_score(data_source, solution_str, ground_truth, extra_info=N
         from . import agent
         res = agent.compute_score_eval(solution_str, ground_truth)
 
-    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-standard', 'wemath-pro', 'minio3', 'vsi', 'longvila', 'ecd']:
+    elif data_source in ['vstar', 'vl_agent', 'chart', 'zebra_cot', 'vigorl', 'deepeyes', 'math_8k_verified', 'barc', 'wemath-standard', 'wemath-pro', 'minio3', 'vsi', 'longvila', 'ecd', 'v-interaction', 'mathvision']:
         from verl.utils.reward_score import vl_agent, general_verifier, multi_task_verifier
         # print(f"################################## import the vl_agent successfully.")
         res = multi_task_verifier.compute_score(solution_str, ground_truth, extra_info, llm_as_a_judge_config, data_source)
