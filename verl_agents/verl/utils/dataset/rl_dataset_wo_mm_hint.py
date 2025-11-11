@@ -119,7 +119,7 @@ def transfer_to_rl_form_image(data_list):
     if "mm_hint" in data_list[0]:
         return data_list
     else:
-        rl_template_list = json.load(open("./verl/utils/dataset/rl_system_prompt_template.json", "r"))
+        rl_template_list = json.load(open("./verl_agents/verl/utils/dataset/rl_system_prompt_template.json", "r"))
         prompt_prefix = rl_template_list['vis_tool_with_img_info_wo_init_image_v2']
         new_data_list = []
         for item in data_list:
@@ -165,7 +165,7 @@ def transfer_to_rl_form_video(data_list):
     if "mm_hint" in data_list[0]:
         return data_list
     else:
-        rl_template_list = json.load(open("./verl/utils/dataset/rl_system_prompt_template.json", "r"))
+        rl_template_list = json.load(open("./verl_agents/verl/utils/dataset/rl_system_prompt_template.json", "r"))
         prompt_prefix = rl_template_list['vis_tool_with_img_info_video_v4']
         new_data_list = []
         for item in data_list:
