@@ -1298,7 +1298,7 @@ class RayPPOTrainer:
             # "do_sample": self.config.actor_rollout_ref.rollout.val_kwargs.do_sample,
             "do_sample": True,
             "validate": True,
-            "max_turn_of_validation": 30
+            "max_turn_of_validation": self.config.actor_rollout_ref.rollout.val_kwargs.max_turn_in_val
         }
         print(f"test_gen_batch meta info: {gen_batch.meta_info}")
         

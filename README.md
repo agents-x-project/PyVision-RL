@@ -185,7 +185,8 @@ max_num_gen_batches=0
 #                                       Other RL Parameter                                       #
 ##################################################################################################
 rollout_num=8                                                                                    
-max_turn=5                                                                                       
+max_turn=5 
+max_turn_in_val=30                                                                                      
 tool_using_cumulative_reward_per_turn=0.0
 concurrent_workers=64  # the worker num used for vlm-env interaction
                                                                                                  
@@ -255,6 +256,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.agent.concurrent_workers=${concurrent_workers} \
     actor_rollout_ref.rollout.agent.show_tqdm=True \
     actor_rollout_ref.rollout.agent.tool_using_cumulative_reward_per_turn=${tool_using_cumulative_reward_per_turn} \
+    +actor_rollout_ref.rollout.val_kwargs.max_turn_in_val=${max_turn_in_val} \
     trainer.rollout_data_dir=${ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.the_first_batch_rollout_data_dir=${FIRST_ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.critic_warmup=0 \
