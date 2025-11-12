@@ -118,12 +118,14 @@ class NaiveRewardManager:
                 for key, value in score.items():
                     if key != "score":
                         reward_extra_info[key].append(value)
+                reward_extra_info['acc_score'].append(score["score"])
                 reward_extra_info['ground_truth'].append(ground_truth)
                 reward_extra_info['data_source'].append(data_source)
                 reward_extra_info['ability'].append(ability)
                 reward_extra_info['uid'].append(uid)
             else:
                 reward = score
+                reward_extra_info['acc_score'].append(score)
                 reward_extra_info['ground_truth'].append(ground_truth)
                 reward_extra_info['data_source'].append(data_source)
                 reward_extra_info['ability'].append(ability)
