@@ -165,6 +165,7 @@ MATHVISTA_BENCH=""
 ##################################################################################################
 #                                    Data Loading Parameter                                      #
 ##################################################################################################
+prompt_template_path=./verl_agents/verl/utils/dataset/rl_system_prompt_template.json
 gen_batch_size=64   
 max_video_gen_batch_size=32     # 32 might cause OOM in longvila
 gen_batch_size_align_method="up_resample_image"     # up_resample_image: resample prompts from dataloader to fill discarded prompts with video
@@ -212,6 +213,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     data.return_raw_chat=True \
     data.filter_overlong_prompts=True \
     data.with_mm_hint=${with_mm_hint} \
+    +data.prompt_template_path=${prompt_template_path} \
     +data.gen_batch_size=${gen_batch_size} \
     +data.max_video_gen_batch_size=${max_video_gen_batch_size} \   
     +data.gen_batch_size_align_method=${gen_batch_size_align_method} \

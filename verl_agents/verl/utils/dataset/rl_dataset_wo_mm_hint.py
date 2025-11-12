@@ -115,11 +115,11 @@ def sample_frames_from_video(video_path, num_frames=8):
         'height': height
     }
 
-def transfer_to_rl_form_image(data_list):
+def transfer_to_rl_form_image(data_list, prompt_template_path):
     if "mm_hint" in data_list[0]:
         return data_list
     else:
-        rl_template_list = json.load(open("./verl_agents/verl/utils/dataset/rl_system_prompt_template.json", "r"))
+        rl_template_list = json.load(open(prompt_template_path, "r"))
         prompt_prefix = rl_template_list['vis_tool_with_img_info_wo_init_image_v2']
         new_data_list = []
         for item in data_list:
@@ -161,11 +161,11 @@ def transfer_to_rl_form_image(data_list):
         return new_data_list
 
 
-def transfer_to_rl_form_video(data_list):
+def transfer_to_rl_form_video(data_list, prompt_template_path):
     if "mm_hint" in data_list[0]:
         return data_list
     else:
-        rl_template_list = json.load(open("./verl_agents/verl/utils/dataset/rl_system_prompt_template.json", "r"))
+        rl_template_list = json.load(open(prompt_template_path, "r"))
         prompt_prefix = rl_template_list['vis_tool_with_img_info_video_v4']
         new_data_list = []
         for item in data_list:
@@ -281,7 +281,9 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
         print("######################################################")
         self.config = config
 
-        self.cache_dir = os.path.expanduser(config.get("cache_dir", "/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_data/cache"))
+
+        self.prompt_template_path = config.get("prompt_template_path", None)
+        self.cache_dir = os.path.expanduser(config.get("cache_dir", None))
         self.prompt_key = config.get("prompt_key", "prompt")
         self.image_key = config.get("image_key", "images")
         self.video_key = config.get("video_key", "videos")
@@ -312,11 +314,18 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
         dataframes = []
         for data_file_path in self.data_files:
             if "image_val_dataset" in data_file_path:
-                data_list = json.load(open(data_file_path, "r"))
-                data_list = transfer_to_rl_form_image(data_list)
+                save_data_path = data_file_path.replace("image_val_dataset", "processed")
+                if os.path.exists(save_data_path):
+                    data_list = json.load(open(save_data_path, "r"))
+                else:
+                    data_list = json.load(open(data_file_path, "r"))
+                    data_list = transfer_to_rl_form_image(data_list, self.prompt_template_path)
+                    save_data_path = data_file_path.replace("image_val_dataset", "processed")
+                    with open(save_data_path, "w") as f:
+                        json.dump(data_list, f, indent=4)
             elif "video_val_dataset" in data_file_path:
                 data_list = json.load(open(data_file_path, "r"))
-                data_list = transfer_to_rl_form_video(data_list)    
+                data_list = transfer_to_rl_form_video(data_list, self.prompt_template_path)    
             else:
                 data_list = json.load(open(data_file_path, "r"))
             dataframes += data_list
