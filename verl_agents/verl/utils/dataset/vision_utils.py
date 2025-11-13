@@ -30,21 +30,39 @@ def process_raw_image(image: dict):
 
     if isinstance(image, Image.Image):
         return image.convert("RGB")
+
+    if isinstance(image, str):
+        image = Image.open(image).convert("RGB")
+        return image
+
     return image
 
 
-def process_image(image: Union[dict, Image.Image]) -> Image.Image:
+def process_image(image, min_pixels=None, max_pixels=None) -> Image.Image:
     # if isinstance(image, dict) and 'bytes' in image.keys():
     #     image_object = Image.open(BytesIO(image['bytes']))
 
+    if min_pixels and max_pixels:
+        ele = {
+            "min_pixels": min_pixels,
+            "max_pixels": max_pixels
+        }
+    else:
+        ele = {}
+
+    if isinstance(image, str):
+        ele['image'] = Image.open(image).convert('RGB')
+
     if isinstance(image, Image.Image):
-        return image.convert("RGB")
+        ele['image'] = image
+        # return ele['image']
 
     if "bytes" in image:
         assert "image" not in image, "Cannot have both `bytes` and `image`"
-        image["image"] = Image.open(BytesIO(image["bytes"]))
+        ele["image"] = Image.open(BytesIO(image["bytes"]))
+        # return ele["image"]
 
-    return fetch_image(image)
+    return fetch_image(ele)
 
 
 VIDEO_FORMAT_HELP = """Currently, we only support the video formats introduced in qwen2-vl.

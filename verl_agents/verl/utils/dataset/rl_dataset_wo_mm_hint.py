@@ -207,29 +207,6 @@ def transfer_to_rl_form_video(data_list, prompt_template_path):
 
         return new_data_list
 
-def process_prompt_init(question, image_path, tokenizer, prompt_template, prompt_type):
-    with open(prompt_template, "r") as fin:
-        sys = json.load(fin)
-    prompt_prefix = sys[prompt_type]
-
-    img_result = encode_image(image_path)
-    image_base64 = img_result['base64']
-    width = img_result['width']
-    height = img_result['height']
-    question_with_options = question
-
-    messages = [
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": "<image_clue_0>"}] + [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}] + [{"type": "text", "text": "</image_clue_0>\n\n"}] + [{"type": "text", "text": prompt_prefix.format(query=question_with_options, width=str(width), height=str(height))}]
-        }
-    ]
-
-    chat_prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-
-    return chat_prompt, messages
-
-
 def collate_fn(data_list: list[dict]) -> dict:
     tensors = defaultdict(list)
     non_tensors = defaultdict(list)
@@ -283,7 +260,7 @@ class RLHF_wo_mm_hint_Dataset(Dataset):
 
 
         self.prompt_template_path = config.get("prompt_template_path", None)
-        self.cache_dir = os.path.expanduser(config.get("cache_dir", None))
+        self.cache_dir = None
         self.prompt_key = config.get("prompt_key", "prompt")
         self.image_key = config.get("image_key", "images")
         self.video_key = config.get("video_key", "videos")

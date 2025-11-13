@@ -17,6 +17,10 @@ import os
 import re
 from collections import defaultdict
 from typing import List, Optional, Union
+import json
+from PIL import Image
+from io import BytesIO
+import base64
 
 import datasets
 import numpy as np
@@ -27,32 +31,45 @@ from transformers import PreTrainedTokenizer, ProcessorMixin
 import hashlib
 import torch
 from pathlib import Path
+from tqdm import tqdm
 
 import verl.utils.torch_functional as verl_F
 from verl.utils.model import compute_position_id_with_mask
 
-def process_prompt_init(question, image_path, tokenizer, prompt_template, prompt_type):
-    with open(prompt_template, "r") as fin:
-        sys = json.load(fin)
-    prompt_prefix = sys[prompt_type]
-
-    img_result = encode_image(image_path)
-    image_base64 = img_result['base64']
-    width = img_result['width']
-    height = img_result['height']
-    question_with_options = question
-
-    messages = [
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": "<image_clue_0>"}] + [{"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}"}}] + [{"type": "text", "text": "</image_clue_0>\n\n"}] + [{"type": "text", "text": prompt_prefix.format(query=question_with_options, width=str(width), height=str(height))}]
-        }
-    ]
-
-    chat_prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-
-    return chat_prompt, messages
-
+def encode_image(image):
+    """
+    Convert a PIL.Image object or image file path to base64-encoded string, and get resolution info.
+    
+    Args:
+        image: Can be a PIL.Image object or image file path.
+    Returns:
+        dict with keys:
+        - 'base64': base64-encoded string
+        - 'width': width in pixels
+        - 'height': height in pixels
+        - 'resolution': string "widthxheight"
+    """
+    img_obj = None
+    
+    if isinstance(image, str):
+        # Handle file path
+        img_obj = Image.open(image)
+        with open(image, "rb") as image_file:
+            base64_str = base64.b64encode(image_file.read()).decode('utf-8')
+    else:
+        # Handle PIL.Image object
+        img_obj = image
+        buffered = BytesIO()
+        image.save(buffered, format='PNG')
+        base64_str = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    
+    width, height = img_obj.size
+    
+    return {
+        'base64': base64_str,
+        'width': width,
+        'height': height
+    }
 
 def collate_fn(data_list: list[dict]) -> dict:
     tensors = defaultdict(list)
@@ -73,6 +90,45 @@ def collate_fn(data_list: list[dict]) -> dict:
 
     return {**tensors, **non_tensors}
 
+def transfer_to_rl_form_image_w_mm_hint(data_list, prompt_template_path):
+    if "mm_hint" in data_list[0]:
+        return data_list
+    else:
+        rl_template_list = json.load(open(prompt_template_path, "r"))
+        prompt_prefix = rl_template_list['vistool_with_img_info_v2']
+        new_data_list = []
+        for item in tqdm(data_list, desc=f"Processing dataset: {data_list[0]['data_source']}......"):
+
+            image_path = item['image_path']
+            question = item['question']
+            answer = item['answer']
+
+            img_result = encode_image(image_path)
+            image_base64 = img_result['base64']
+            width = img_result['width']
+            height = img_result['height']
+            prompt = "<image>\n" + prompt_prefix.format(query=question, width=width, height=height)
+
+            new_item = {}
+            new_item['prompt'] = [{"content": prompt, "role": "user"}]
+            new_item['data_source'] = item['data_source']
+            new_item['ability'] = item['ability']
+            new_item['env_name'] = "pyvision_gym_w_image_hint"
+            new_item['reward_model'] = {"ground_truth": answer, "style": "model"}
+            new_item['extra_info'] = {
+                "answer": answer,
+                "index": int(item['id']),
+                "question": question,
+                "split": "train"
+            }
+            new_item['mm_hint'] = {
+                "hint_path": image_path,
+                "hint_type": "image"
+            }
+
+            new_data_list.append(new_item)
+
+        return new_data_list
 
 class RLHFDataset(Dataset):
     """
@@ -88,13 +144,10 @@ class RLHFDataset(Dataset):
     ):
         if not isinstance(data_files, (List, ListConfig)):
             data_files = [data_files]
-        
+
         all_data_file_path_list = []
-        for data_dir in data_files:
-            data_file_name_list = os.listdir(data_dir)
-            for data_file_name in data_file_name_list:
-                data_file_path = os.path.join(data_dir, data_file_name)
-                all_data_file_path_list.append(data_file_path)
+        for data_file_path in data_files:
+            all_data_file_path_list.append(data_file_path)
 
         data_files = all_data_file_path_list
 
@@ -102,13 +155,17 @@ class RLHFDataset(Dataset):
         self.original_data_files = copy.deepcopy(data_files)  # use for resume
         self.tokenizer = tokenizer
         self.processor = processor
-        print("######################################################")
-        print(f"min pixels in image processor: {self.processor.image_processor.min_pixels}")
-        print(f"max pixels in image processor: {self.processor.image_processor.max_pixels}")
-        print("######################################################")
-        self.config = config
 
-        self.cache_dir = os.path.expanduser(config.get("cache_dir", "/mnt/petrelfs/zhaoshitian/eaigc1_t_zhaoshitian/agents_x/rl_data/cache"))
+        self.config = config
+        self.min_pixels = config.min_pixels
+        self.max_pixels = config.max_pixels
+        print("######################################################")
+        print(f"min pixels in image processor: {self.processor.image_processor.min_pixels}, real min pixels: {self.min_pixels}")
+        print(f"max pixels in image processor: {self.processor.image_processor.max_pixels}, real max pixels: {self.max_pixels}")
+        print("######################################################")
+
+        self.cache_dir = os.path.expanduser(config.get("cache_dir", "/inspire/hdd/project/qproject-assement/zhangkaipeng-24043/zhaoshitian/vis_tool_train/cache"))
+        self.prompt_template_path = config.get("prompt_template_path", None)
         self.prompt_key = config.get("prompt_key", "prompt")
         self.image_key = config.get("image_key", "images")
         self.video_key = config.get("video_key", "videos")
@@ -135,68 +192,57 @@ class RLHFDataset(Dataset):
             self.data_files[i] = copy_to_local(src=parquet_file, cache_dir=self.cache_dir)
 
     # def _read_files_and_tokenize(self):
+    #     # Generate a unique cache file name based on data_files and config
+    #     # data_files_str = "".join(sorted(self.data_files))
+    #     # config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
+    #     # hash_input = data_files_str + config_str
+    #     # hash_name = hashlib.md5(hash_input.encode()).hexdigest()
+    #     # cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
+
+    #     # os.makedirs(self.cache_dir, exist_ok=True)
+
+    #     # if os.path.exists(cache_file):
+    #     #     print(f"Loading dataset from cache: {cache_file}")
+    #     #     self.dataframe = torch.load(cache_file, weights_only=False)
+    #     # else:
     #     dataframes = []
     #     for parquet_file in self.data_files:
-    #         # read parquet files and cache
     #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
     #         dataframes.append(dataframe)
-    #     self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
-
-    #     print(f"dataset len: {len(self.dataframe)}")
-
-    #     # filter out too long prompts
-    #     if self.filter_overlong_prompts:
-    #         tokenizer = self.tokenizer
-    #         prompt_key = self.prompt_key
-    #         self.dataframe = self.dataframe.filter(
-    #             lambda doc: len(tokenizer.apply_chat_template(doc[prompt_key], add_generation_prompt=True))
-    #             <= self.max_prompt_length,
-    #             num_proc=self.num_workers,
-    #             desc=f"Filtering prompts longer than {self.max_prompt_length} tokens",
-    #         )
-
-    #         print(f"filter dataset len: {len(self.dataframe)}")
-
-######################################################################################################################
-    # def _read_files_and_tokenize(self):
-    #     dataframes = []
-    #     for parquet_file in self.data_files:
-    #         # read parquet files and cache
-    #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-    #         dataframes.append(dataframe)
-    #     self.dataframe: datasets.Dataset = datasets.concatenate_datasets(dataframes)
+    #     self.dataframe = datasets.concatenate_datasets(dataframes)
 
     #     print(f"dataset len: {len(self.dataframe)}")
 
     #     self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
 
+    #     # Save processed dataset to cache
+    #     print(f"Saving dataset to cache: {cache_file}")
+    #     torch.save(self.dataframe, cache_file)
+
+    #     print(f"Final dataset len: {len(self.dataframe)}")
+
+
     def _read_files_and_tokenize(self):
-        # Generate a unique cache file name based on data_files and config
-        data_files_str = "".join(sorted(self.data_files))
-        config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
-        hash_input = data_files_str + config_str
-        hash_name = hashlib.md5(hash_input.encode()).hexdigest()
-        cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
+        dataframes = []
+        for data_file_path in self.data_files:
+            if "image_val_dataset" in data_file_path:
+                save_data_path = data_file_path.replace("image_val_dataset", "processed_w_image_hint")
+                if os.path.exists(save_data_path):
+                    data_list = json.load(open(save_data_path, "r"))
+                else:
+                    data_list = json.load(open(data_file_path, "r"))
+                    data_list = transfer_to_rl_form_image_w_mm_hint(data_list, self.prompt_template_path)
+                    save_data_path = data_file_path.replace("image_val_dataset", "processed_w_image_hint")
+                    with open(save_data_path, "w") as f:
+                        json.dump(data_list, f, indent=4)  
+            else:
+                data_list = json.load(open(data_file_path, "r"))
+            dataframes += data_list
 
-        os.makedirs(self.cache_dir, exist_ok=True)
+        self.dataframe = dataframes
 
-        if os.path.exists(cache_file):
-            print(f"Loading dataset from cache: {cache_file}")
-            self.dataframe = torch.load(cache_file, weights_only=False)
-        else:
-            dataframes = []
-            for parquet_file in self.data_files:
-                dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-                dataframes.append(dataframe)
-            self.dataframe = datasets.concatenate_datasets(dataframes)
-
-            print(f"dataset len: {len(self.dataframe)}")
-
-            self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
-
-            # Save processed dataset to cache
-            print(f"Saving dataset to cache: {cache_file}")
-            torch.save(self.dataframe, cache_file)
+        print(f"dataset len: {len(self.dataframe)}")
+        # torch.save(self.dataframe, cache_file)
 
         print(f"Final dataset len: {len(self.dataframe)}")
 
@@ -242,16 +288,6 @@ class RLHFDataset(Dataset):
 
             print(f"filter dataset len: {len(dataframe)}")
         return dataframe
-###########################################################################################################################
-
-    def resume_dataset_state(self):
-        self.serialize_dataset = not hasattr(self, "original_data_files")
-        # resume dataframe if not it's serialized in data.pt
-        if not self.serialize_dataset:
-            self._download(use_origin_parquet=True)  # download and resume from original parquet files
-            self._read_files_and_tokenize()
-        else:
-            print(r"old dataloader ckpt file is used, please train from scratch for better ckpt performance")
 
     def __len__(self):
         return len(self.dataframe)
@@ -278,21 +314,19 @@ class RLHFDataset(Dataset):
     def _build_messages_pyvision(self, example: dict):
         messages: list = example.pop(self.prompt_key)
 
-        if self.image_key in example or self.video_key in example:
-            for message in messages:
-                content = message["content"]
-                content_list = []
-                for segment in re.split("(<image>|<video>)", content):
-                    if segment == "<image>":
-                        content_list.append({"type": "text", "text": "<image_clue_0>"})
-                        content_list.append({"type": "image"})
-                        content_list.append({"type": "text", "text": "</image_clue_0>"})
-                    elif segment == "<video>":
-                        content_list.append({"type": "video"})
-                    else:
-                        content_list.append({"type": "text", "text": segment})
+        for message in messages:
+            content = message["content"]
+            content_list = []
+            for segment in re.split("(<image>|<video>)", content):
+                if segment == "<image>":
+                    content_list.append({"type": "text", "text": "<image_clue_0>"})
+                    content_list.append({"type": "image"})
+                    content_list.append({"type": "text", "text": "</image_clue_0>"})
+                else:
+                    content_list.append({"type": "text", "text": segment})
+                    # print(f"<image> is not in the init prompt !!!!!!!!!!!")
 
-                message["content"] = content_list
+            message["content"] = content_list
 
         return messages
 
@@ -301,7 +335,6 @@ class RLHFDataset(Dataset):
         Note that we also return the raw_input_ids so that it can be combined with other chat template
         """
         row_dict: dict = self.dataframe[item]
-        # messages = self._build_messages(row_dict)
         messages = self._build_messages_pyvision(row_dict)
         model_inputs = {}
 
@@ -313,36 +346,25 @@ class RLHFDataset(Dataset):
             origin_multi_modal_data = {}
 
             images = None
-            if self.image_key in row_dict:
-                # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
-                # image = row_dict.get(self.image_key)
-                # origin_images = [process_raw_image(image) for image in row_dict.get(self.image_key)]
-                # images = [process_image(image) for image in row_dict.pop(self.image_key)]
-                origin_images = [process_raw_image(row_dict.get(self.image_key))]
-                images = [process_image(row_dict.pop(self.image_key))]
+            hint_type = row_dict['mm_hint']['hint_type']
+            assert hint_type == "image", ("For dataset with mm_hint, the hint_type must be image.")
+            # if self.image_key in row_dict:
+            if hint_type == "image":
+                image_path = row_dict['mm_hint']['hint_path']
+                origin_images = [process_raw_image(image_path)]
+                images = [process_image(image_path, self.min_pixels, self.max_pixels)]
                 multi_modal_data["image"] = images
                 origin_multi_modal_data["image"] = origin_images
 
-            videos = None
-            if self.video_key in row_dict:
-                videos = [process_video(video) for video in row_dict.pop(self.video_key)]
-                multi_modal_data["video"] = [video.numpy() for video in videos]
-
-            model_inputs = self.processor(text=[raw_prompt], images=images, videos=videos, return_tensors="pt")
+            model_inputs = self.processor(text=[raw_prompt], images=images,  return_tensors="pt")
 
             input_ids = model_inputs.pop("input_ids")
             attention_mask = model_inputs.pop("attention_mask")
-
-            if "second_per_grid_ts" in model_inputs:
-                model_inputs.pop("second_per_grid_ts")
 
             # There's a trap here, multi_modal_inputs has to be a dict, not BatchFeature
             row_dict['origin_multi_modal_data'] = origin_multi_modal_data
             row_dict["multi_modal_data"] = multi_modal_data
             row_dict["multi_modal_inputs"] = dict(model_inputs)
-
-            # second_per_grid_ts isn't used for training, just for mrope
-            row_dict["multi_modal_inputs"].pop("second_per_grid_ts", None)
 
         else:
             raw_prompt = self.tokenizer.apply_chat_template(messages, add_generation_prompt=True, tokenize=False)
@@ -359,19 +381,37 @@ class RLHFDataset(Dataset):
             truncation=self.truncation,
         )
 
-        if self.processor is not None and self.processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor":
+        # if self.processor is not None and self.processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor":
+        if self.processor is not None and (self.processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessor" or self.processor.image_processor.__class__.__name__ == "Qwen2VLImageProcessorFast"):
             from verl.models.transformers.qwen2_vl import get_rope_index
 
-            position_ids = [
-                get_rope_index(
+            # position_ids = [
+            #     get_rope_index(
+            #         self.processor,
+            #         input_ids=input_ids[0],
+            #         image_grid_thw=model_inputs.get("image_grid_thw"),
+            #         video_grid_thw=model_inputs.get("video_grid_thw"),
+            #         second_per_grid_ts=model_inputs.get("second_per_grid_ts"),
+            #         attention_mask=attention_mask[0],
+            #     )
+            # ]  # (1, 3, seq_len)
+
+            vision_position_ids = get_rope_index(
                     self.processor,
                     input_ids=input_ids[0],
                     image_grid_thw=model_inputs.get("image_grid_thw"),
                     video_grid_thw=model_inputs.get("video_grid_thw"),
                     second_per_grid_ts=model_inputs.get("second_per_grid_ts"),
                     attention_mask=attention_mask[0],
-                )
-            ]  # (1, 3, seq_len)
+            )    
+
+            device = vision_position_ids.device
+            valid_mask = attention_mask[0].bool()
+            text_position_ids = torch.ones((1, len(input_ids[0])), dtype=torch.long, device=device)
+            text_position_ids[0, valid_mask] = torch.arange(valid_mask.sum().item(), device=device)
+            position_ids = [torch.cat((text_position_ids, vision_position_ids), dim=0)]  # (1, 4, seq_length)
+
+            # position_ids_list += position_ids
 
         else:
             position_ids = compute_position_id_with_mask(attention_mask)
