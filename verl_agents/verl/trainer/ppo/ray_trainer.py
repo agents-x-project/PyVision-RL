@@ -62,7 +62,7 @@ from verl.utils.dataset.rl_dataset_wo_mm_hint import RLHF_wo_mm_hint_Dataset
 from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
-from verl.trainer.ppo.filter_fn_utils import rollout_filtering_function
+from verl.trainer.ppo.filter_fn_utils import rollout_filtering_function, rollout_filtering_function_validation
 
 from verl.trainer.ppo.metric_utils import compute_agent_metrics
 
@@ -578,6 +578,39 @@ class RayPPOTrainer:
 
         print(f"Dumped generations to {filename}")
 
+    def _real_generations_for_val(self, inputs, outputs, scores, reward_extra_infos_dict, dump_path, rollout_save_id):
+        """Dump rollout/validation samples as JSONL."""
+        os.makedirs(dump_path, exist_ok=True)
+        # filename = os.path.join(dump_path, f"{rollout_save_id}.json")
+
+        n = len(inputs)
+        base_data = {
+            "input": inputs,
+            "output": outputs,
+            "score": scores,
+            "step": [0] * n,
+        }
+
+        for k, v in reward_extra_infos_dict.items():
+            if len(v) == n:
+                base_data[k] = v
+
+        lines = []
+        for i in range(n):
+            entry = {k: v[i] for k, v in base_data.items()}
+            lines.append(entry)
+
+        # with open(filename, "w") as f:
+        #     json.dump(lines, f, ensure_ascii=False, indent=4)
+        
+        for item in lines:
+            item_index = item['index']
+            item_save_path = os.path.join(dump_path, f"{item_index}.json")
+            with open(item_save_path, "w") as f:
+                json.dump(item, f, ensure_ascii=False, indent=4)
+
+        print(f"Dumped generations save.")
+
     def _dump_batch_generations(self, batch: DataProto, dump_path: str):
         """
         Helper method to dump a batch's generations to disk.
@@ -611,6 +644,42 @@ class RayPPOTrainer:
             scores=scores,
             reward_extra_infos_dict=reward_extra_infos_dict,
             dump_path=dump_path,
+        )
+
+    def _real_batch_generations_for_val(self, batch: DataProto, dump_path: str, rollout_save_id: int):
+        """
+        Helper method to dump a batch's generations to disk.
+        
+        Args:
+            batch: DataProto containing prompts, responses, and reward info
+            dump_path: Directory path to dump the generations
+        """
+        # Extract reward extra info from batch
+        reward_extra_infos_dict: dict[str, list] = {}
+        for key in batch.non_tensor_batch.keys():
+            # Skip standard keys, only collect reward-related extra info
+            if key not in ["uid", "data_source", "raw_prompt_ids", "raw_prompt", 
+                          "multi_modal_data", "origin_multi_modal_data", "multi_modal_inputs",
+                          "reward_model"]:
+                values = batch.non_tensor_batch[key]
+                # Convert numpy arrays to lists
+                reward_extra_infos_dict[key] = [
+                    v.tolist() if hasattr(v, 'tolist') else v for v in values
+                ]
+        
+        # Decode inputs and outputs
+        inputs = self.tokenizer.batch_decode(batch.batch["prompts"], skip_special_tokens=True)
+        outputs = self.tokenizer.batch_decode(batch.batch["responses"], skip_special_tokens=True)
+        scores = batch.batch["token_level_scores"].sum(-1).cpu().tolist()
+        
+        # Use existing dump method
+        self._real_generations_for_val(
+            inputs=inputs,
+            outputs=outputs,
+            scores=scores,
+            reward_extra_infos_dict=reward_extra_infos_dict,
+            dump_path=dump_path,
+            rollout_save_id=rollout_save_id
         )
 
     def _maybe_log_val_generations(self, inputs, outputs, scores):
@@ -690,6 +759,204 @@ class RayPPOTrainer:
 
         print(f"##################### validation metric dict: {metric_dict}")
         return metric_dict
+##########################################################################################
+
+    def _combine_samples_to_batch(self, samples):
+        """
+        将单个样本组合成批次
+        """
+        # 提取所有字段
+        tensors = {}
+        non_tensors = {}
+        
+        # 初始化所有可能的键
+        tensor_keys = set()
+        non_tensor_keys = set()
+        
+        for sample in samples:
+            if hasattr(sample, 'batch'):
+                tensor_keys.update(sample.batch.keys())
+            if hasattr(sample, 'non_tensor_batch'):
+                non_tensor_keys.update(sample.non_tensor_batch.keys())
+
+        print(f"########### collected keys, tensor-keys: {tensor_keys}; non-tensor-keys: {non_tensor_keys}")
+        
+        # 收集张量数据
+        for key in tensor_keys:
+            tensors_list = []
+            for sample in samples:
+                if hasattr(sample, 'batch') and key in sample.batch:
+                    tensors_list.append(sample.batch[key])
+            
+            if tensors_list:
+                tensors[key] = torch.stack(tensors_list, dim=0)
+        
+        # 收集非张量数据
+        for key in non_tensor_keys:
+            values_list = []
+            for sample in samples:
+                if hasattr(sample, 'non_tensor_batch') and key in sample.non_tensor_batch:
+                    # print(f"################ non-tensor-batch {key}: {sample.non_tensor_batch[key]}")
+                    # print(f"################ length of non-tensor-batch {key}: {len(sample.non_tensor_batch[key])}")
+                    values_list.append(sample.non_tensor_batch[key])
+            
+            if values_list:
+                non_tensors[key] = np.array(values_list, dtype=object)
+        
+        return DataProto.from_dict(tensors=tensors, non_tensors=non_tensors)
+
+    def _check_processed_data(self):
+        rollout_in_val_save_path = self.config.actor_rollout_ref.rollout.val_kwargs.rollout_save.dir_path
+        not_processed_data_list = []
+        processed_data_list = []
+        processed_data_source_list = []
+        for item in self.val_dataset.dataframe:
+            item_index = item['extra_info']['index']
+            item_save_path = os.path.join(rollout_in_val_save_path, f"{item_index}.json")
+            if not os.path.exists(item_save_path):
+                not_processed_data_list.append(item)
+            else:
+                try:
+                    item_datasource = item['data_source']
+                    processed_data_source_list.append(item_datasource)
+                    item = json.load(open(item_save_path, "r"))
+                    processed_data_list.append(item)
+                except:
+                    pass
+
+        self.val_dataset.dataframe = not_processed_data_list
+        print(f"[DEBUG prefilter validation data] Original val datasize: {len(processed_data_list)+len(not_processed_data_list)}; Processed val datasize: {len(processed_data_list)}; Not Processed val datasize: {len(not_processed_data_list)}")
+        return processed_data_list, processed_data_source_list
+        
+    def _validate_for_eval(self):
+        processed_and_saved_data, processed_data_source_list = self._check_processed_data()
+
+        data_source_lst = []
+        reward_extra_infos_dict: dict[str, list] = defaultdict(list)
+        sample_inputs = []
+        sample_scores = []
+        timing_raw = {}
+
+        # 初始化重试数据容器 - 收集单个样本而不是整个批次
+        retry_samples = []
+        max_retries = getattr(self.config.actor_rollout_ref.rollout.val_kwargs.retry, 'max_retries', 3)
+        retry_count = 0
+        retry_batch_size = getattr(self.config.actor_rollout_ref.rollout.val_kwargs.retry, 'batch_size', 8)
+
+        rollout_save_id = 0
+        
+        # 第一轮验证：处理原始验证数据
+        for test_data in tqdm(self.val_dataloader, desc="Validating..."):
+
+            test_batch = DataProto.from_single_dict(test_data)
+            test_batch = test_batch.repeat(
+                repeat_times=self.config.actor_rollout_ref.rollout.val_kwargs.n, interleave=True
+            )
+
+            # 存储原始输入
+            input_ids = test_batch.batch["input_ids"]
+            input_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in input_ids]
+            sample_inputs.extend(input_texts)
+
+            ori_test_batch = deepcopy(test_batch)
+
+            # 处理批次并获取过滤结果
+            processed_batch, _, currently_kept_indices, final_filtered_out_indices = self._generate_and_score_batch_validation_for_eval(test_batch, timing_raw)
+            ori_filtered_out_text_batch = ori_test_batch[final_filtered_out_indices]
+            # filtered_samples = ori_filtered_out_text_batch
+
+            print(f"######## Size of processed_batch: {len(processed_batch)}; Size of filtered_batch: {len(ori_filtered_out_text_batch)}")
+            if len(processed_batch) == 0:
+                print(f" Opps, all samples are filtered...")
+            else:
+                if self.config.actor_rollout_ref.rollout.val_kwargs.rollout_save.enable:
+                    rollout_in_val_save_path = self.config.actor_rollout_ref.rollout.val_kwargs.rollout_save.dir_path
+                    self._real_batch_generations_for_val(processed_batch, rollout_in_val_save_path, rollout_save_id)
+                    rollout_save_id += 1
+                
+                # 收集成功处理的样本
+                is_correct = processed_batch.non_tensor_batch['is_answer_right']
+                acc_scores = processed_batch.non_tensor_batch['acc_score']
+                scores = [acc_score for acc_score in acc_scores]
+                sample_scores.extend(scores)
+                reward_extra_infos_dict["acc_score"].extend(scores)
+                data_source_lst.append(processed_batch.non_tensor_batch.get("data_source", ["unknown"] * len(scores)))
+            
+            # 收集需要重试的样本（单个样本而不是整个批次）
+            if ori_filtered_out_text_batch:
+                retry_samples.extend(ori_filtered_out_text_batch)
+
+        # 后续重试轮次
+        while retry_samples and retry_count < max_retries:
+            print(f"[DEBUG evaluation retry] {len(retry_samples)} samples have left, keep retrying ...")
+
+            retry_count += 1
+            next_retry_samples = []
+            
+            # 将重试样本组织成批次
+            num_retry_batches = (len(retry_samples) + retry_batch_size - 1) // retry_batch_size
+            
+            for i in tqdm(range(num_retry_batches), desc=f"Retry attempt {retry_count}"):
+                start_idx = i * retry_batch_size
+                end_idx = min((i + 1) * retry_batch_size, len(retry_samples))
+                batch_samples = retry_samples[start_idx:end_idx]
+                
+                # 将样本组合成批次
+                retry_batch = self._combine_samples_to_batch(batch_samples)
+                ori_retry_batch = deepcopy(retry_batch)
+                
+                # 处理重试批次
+                # processed_batch, filtered_samples = self._generate_and_score_batch_validation(retry_batch, timing_raw)
+                processed_batch, _, currently_kept_indices, final_filtered_out_indices = self._generate_and_score_batch_validation_for_eval(retry_batch, timing_raw)
+                filtered_retry_batch = ori_retry_batch[final_filtered_out_indices]
+
+
+                print(f"######## Size of processed_batch: {len(processed_batch)}; Size of filtered_batch: {len(filtered_retry_batch)}")
+                if len(processed_batch) == 0:
+                    print(f" Opps, all samples are filtering...")
+                else:
+                    if self.config.actor_rollout_ref.rollout.val_kwargs.rollout_save.enable:
+                        rollout_in_val_save_path = self.config.actor_rollout_ref.rollout.val_kwargs.rollout_save.dir_path
+                        self._real_batch_generations_for_val(processed_batch, rollout_in_val_save_path, rollout_save_id)
+                        rollout_save_id += 1
+                    
+                    # 收集成功处理的样本
+                    is_correct = processed_batch.non_tensor_batch['is_answer_right']
+                    acc_scores = processed_batch.non_tensor_batch['acc_score']
+                    scores = [acc_score for acc_score in acc_scores]
+                    sample_scores.extend(scores)
+                    reward_extra_infos_dict["acc_score"].extend(scores)
+                    data_source_lst.append(processed_batch.non_tensor_batch.get("data_source", ["unknown"] * len(scores)))
+                
+                # 收集仍需重试的样本
+                if filtered_retry_batch:
+                    next_retry_samples.extend(filtered_retry_batch)
+            
+            retry_samples = next_retry_samples
+
+        is_correct = [_['is_answer_right'] for _ in processed_and_saved_data]
+        acc_scores = [_['acc_score'] for _ in processed_and_saved_data]
+        scores = [acc_score for acc_score in acc_scores]
+        sample_scores.extend(scores)
+        reward_extra_infos_dict["acc_score"].extend(scores)
+        data_source_lst.append(processed_data_source_list)
+
+        # 验证数据一致性
+        for key_info, lst in reward_extra_infos_dict.items():
+            assert len(lst) == 0 or len(lst) == len(sample_scores), f"{key_info}: {len(lst)=}, {len(sample_scores)=}"
+
+        data_sources = np.concatenate(data_source_lst, axis=0)
+        data_src2acc = calculate_average_accuracy_by_source(data_sources, reward_extra_infos_dict)
+        print(f"########################## data src2acc: {data_src2acc}")
+        
+        metric_dict = {}
+        for data_source, acc in data_src2acc.items():
+            metric_dict[f"val/{data_source}"] = acc
+
+        print(f"##################### validation metric dict: {metric_dict}")
+        return metric_dict
+
+##########################################################################################
 
     def init_workers(self):
         """Init resource pool and worker group"""
@@ -1316,6 +1583,19 @@ class RayPPOTrainer:
             [str(uuid.uuid4()) for _ in range(len(new_batch.batch))], dtype=object
         )
         new_batch = new_batch.union(gen_batch_output)
+
+        # # Apply filtering if enabled
+        # if self.config.actor_rollout_ref.rollout.val_kwargs.retry.enable:
+        #     metric_name_list = self.config.actor_rollout_ref.rollout.val_kwargs.retry.metric
+        #     extra_filtering_config = {
+        #         "end_reason_filter_reserve_names": self.config.algorithm.retry.get("end_reason_filter_reserve_names", None),
+        #     }
+        #     new_batch, all_filtered_out_batches, all_filter_reasons = rollout_filtering_function_validation(new_batch, metric_name_list, extra_filtering_config)
+        #     filtered_count = len(filtered_batch)
+        #     print(f"Filtered {len(new_batch)} -> {filtered_count} rollouts, keep retrying...")
+        # else:
+        #     filtered_batch = new_batch
+        #     filtered_count = len(filtered_batch)
         
         # Compute rewards
         with _timer("reward", timing_raw):
@@ -1335,6 +1615,136 @@ class RayPPOTrainer:
                 new_batch.non_tensor_batch.update({k: np.array(v) for k, v in reward_extra_infos_dict.items()})
         
         return new_batch
+
+##########################################################################################
+    def _generate_and_score_batch_validation_for_eval(self, batch_dict, timing_raw):
+        """
+        Generate rollouts and compute rewards for a single batch.
+        
+        Args:
+            batch_dict: Raw batch dictionary from dataloader
+            timing_raw: Dictionary to accumulate timing information
+            
+        Returns:
+            Tuple: (processed_batch, filtered_samples)
+                - processed_batch: DataProto with generated responses and computed rewards
+                - filtered_samples: List of individual samples that were filtered out
+        """
+        if isinstance(batch_dict, DataProto):
+            new_batch: DataProto = batch_dict
+        else:
+            new_batch: DataProto = DataProto.from_single_dict(batch_dict)
+
+        print(f"######### world size: {self.actor_rollout_wg.world_size}")
+        print(f"################## length of new_batch: {len(new_batch)}")
+
+        gen_batch_padded, pad_size = pad_dataproto_to_divisor(new_batch, self.actor_rollout_wg.world_size)
+        print(f"################## length of gen_batch_padded: {len(gen_batch_padded)}")
+        
+        # Pop keys needed for generation
+        if "multi_modal_inputs" in gen_batch_padded.non_tensor_batch.keys():
+            gen_batch = gen_batch_padded.pop(
+                batch_keys=['input_ids', 'attention_mask', 'position_ids'],
+                non_tensor_batch_keys=['raw_prompt_ids', 'multi_modal_data', 'origin_multi_modal_data', 'multi_modal_inputs'],
+            )
+        else:
+            gen_batch = gen_batch_padded.pop(
+                batch_keys=["input_ids", "attention_mask", "position_ids"],
+                non_tensor_batch_keys=["raw_prompt_ids", 'origin_multi_modal_data'],
+            )
+        
+        if 'raw_prompt' in gen_batch_padded.non_tensor_batch.keys():
+            gen_batch.non_tensor_batch['raw_prompt'] = gen_batch_padded.non_tensor_batch.pop('raw_prompt')
+        
+        # Handle agent-specific keys
+        if self.config.actor_rollout_ref.rollout.agent.activate_agent:
+            tool_name_key = self.config.actor_rollout_ref.rollout.agent.tool_name_key
+            if tool_name_key and tool_name_key in gen_batch_padded.non_tensor_batch.keys():
+                gen_batch.non_tensor_batch[tool_name_key] = gen_batch_padded.non_tensor_batch.pop(tool_name_key)
+
+        gen_batch.meta_info = {
+            "eos_token_id": self.tokenizer.eos_token_id,
+            "pad_token_id": self.tokenizer.pad_token_id,
+            "recompute_log_prob": False,
+            "do_sample": True,
+            "validate": True,
+            "max_turn_of_validation": self.config.actor_rollout_ref.rollout.val_kwargs.max_turn_in_val
+        }
+        print(f"test_gen_batch meta info: {gen_batch.meta_info}")
+        
+        # Generate sequences
+        with _timer("gen", timing_raw):
+            gen_batch_output_padded = self.actor_rollout_wg.generate_sequences(gen_batch)
+
+        print(f"################## length of gen_batch_output_padded: {len(gen_batch_output_padded)}")
+        
+        gen_batch_output = unpad_dataproto(gen_batch_output_padded, pad_size=pad_size)
+        new_batch = unpad_dataproto(gen_batch_padded, pad_size=pad_size)
+        
+        # Assign unique IDs and repeat for multiple rollouts per prompt
+        new_batch.non_tensor_batch["uid"] = np.array(
+            [str(uuid.uuid4()) for _ in range(len(new_batch.batch))], dtype=object
+        )
+        new_batch = new_batch.union(gen_batch_output)
+
+        # Initialize filtered samples list
+        filtered_samples = []
+        
+        # Apply filtering if enabled
+        if self.config.actor_rollout_ref.rollout.val_kwargs.retry.enable:
+            metric_name_list = self.config.actor_rollout_ref.rollout.val_kwargs.retry.metric
+            extra_filtering_config = {
+                "end_reason_filter_reserve_names": self.config.actor_rollout_ref.rollout.val_kwargs.retry.get("end_reason_filter_reserve_names", None),
+            }
+            new_batch, all_filtered_out_batches, all_filter_reasons, currently_kept_indices, final_filtered_out_indices = rollout_filtering_function_validation(
+                new_batch, metric_name_list, extra_filtering_config
+            )
+
+            filtered_samples.extend(all_filtered_out_batches)
+            
+            # 将过滤出的批次分解为单个样本
+            # if all_filtered_out_batches:
+            #     for filtered_batch in all_filtered_out_batches:
+            #         # 将批次分解为单个样本
+            #         for i in range(len(filtered_batch)):
+            #             sample_dict = {
+            #                 'batch': {},
+            #                 'non_tensor_batch': {}
+            #             }
+                        
+            #             # 提取张量数据
+            #             for key, value in filtered_batch.batch.items():
+            #                 sample_dict['batch'][key] = value[i:i+1]  # 保持batch维度
+                        
+            #             # 提取非张量数据
+            #             for key, value in filtered_batch.non_tensor_batch.items():
+            #                 sample_dict['non_tensor_batch'][key] = np.array([value[i]])
+                        
+            #             filtered_samples.append(DataProto.from_single_dict(sample_dict))
+
+
+                
+            #     print(f"Filtered {len(new_batch)} samples, {len(filtered_samples)} samples to retry")
+        
+        # Compute rewards
+        with _timer("reward", timing_raw):
+            # Compute reward model scores if enabled
+            if self.use_rm:
+                reward_tensor = self.rm_wg.compute_rm_score(new_batch)
+                new_batch = new_batch.union(reward_tensor)
+            
+            # Compute final rewards (combining model-based and rule-based)
+            reward_result = self.reward_fn(new_batch, return_dict=True)
+            reward_tensor = reward_result["reward_tensor"]
+            reward_extra_infos_dict = reward_result["reward_extra_info"]
+            
+            new_batch.batch["token_level_scores"] = reward_tensor
+            
+            if reward_extra_infos_dict:
+                new_batch.non_tensor_batch.update({k: np.array(v) for k, v in reward_extra_infos_dict.items()})
+        
+        return new_batch, filtered_samples, currently_kept_indices, final_filtered_out_indices
+#################################################################################################
 
     def fit(self):
         """
@@ -1364,11 +1774,18 @@ class RayPPOTrainer:
         # currently, we only support validation using the reward_function.
         # if self.val_reward_fn is not None and self.config.trainer.get("val_before_train", True):
         if self.config.trainer.get("val_before_train", True):
-            val_metrics = self._validate()
-            pprint(f"Initial validation metrics: {val_metrics}")
-            logger.log(data=val_metrics, step=self.global_steps)
-            if self.config.trainer.get("val_only", False):
+            if self.config.actor_rollout_ref.rollout.val_kwargs.eval_enable:
+                val_metrics = self._validate_for_eval()
+                pprint(f"Initial validation metrics: {val_metrics}")
+                logger.log(data=val_metrics, step=self.global_steps)
                 return
+            else:
+                val_metrics = self._validate()
+                pprint(f"Initial validation metrics: {val_metrics}")
+                logger.log(data=val_metrics, step=self.global_steps)
+                if self.config.trainer.get("val_only", False):
+                    return
+        
 
         # add tqdm
         progress_bar = tqdm(total=self.total_training_steps, initial=self.global_steps, desc="Training Progress")

@@ -364,7 +364,7 @@ def get_prompt(predict_str, ground_truth, question, data_source):
         examples = get_gpt4_score_ICE_visual_search()
     elif data_source == "ecd":
         examples = get_gpt4_score_ICE_chart()
-    elif data_source == "wemath-standard" or data_source == "wemath-pro" or data_source == "v-interaction" or data_source == "mathvision" or data_source == "wemath" or data_source == "mathvista" or data_source == "mathverse":
+    elif data_source == "wemath-standard" or data_source == "wemath-pro" or data_source == "v-interaction" or data_source == "mathvision" or data_source == "wemath" or data_source == "mathvista" or data_source == "mathverse" or data_source == "logicvista":
         examples = get_gpt4_score_ICE_math()
     elif data_source == "vsi":
         examples = get_gpt4_score_ICE_vsi()

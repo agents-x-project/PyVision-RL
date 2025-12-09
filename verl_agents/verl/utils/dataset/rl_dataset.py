@@ -191,36 +191,6 @@ class RLHFDataset(Dataset):
         for i, parquet_file in enumerate(data_files):
             self.data_files[i] = copy_to_local(src=parquet_file, cache_dir=self.cache_dir)
 
-    # def _read_files_and_tokenize(self):
-    #     # Generate a unique cache file name based on data_files and config
-    #     # data_files_str = "".join(sorted(self.data_files))
-    #     # config_str = f"{self.max_prompt_length}_{self.filter_overlong_prompts}"
-    #     # hash_input = data_files_str + config_str
-    #     # hash_name = hashlib.md5(hash_input.encode()).hexdigest()
-    #     # cache_file = os.path.join(self.cache_dir, f"dataset_cache_{hash_name}.pt")
-
-    #     # os.makedirs(self.cache_dir, exist_ok=True)
-
-    #     # if os.path.exists(cache_file):
-    #     #     print(f"Loading dataset from cache: {cache_file}")
-    #     #     self.dataframe = torch.load(cache_file, weights_only=False)
-    #     # else:
-    #     dataframes = []
-    #     for parquet_file in self.data_files:
-    #         dataframe = datasets.load_dataset("parquet", data_files=parquet_file)["train"]
-    #         dataframes.append(dataframe)
-    #     self.dataframe = datasets.concatenate_datasets(dataframes)
-
-    #     print(f"dataset len: {len(self.dataframe)}")
-
-    #     self.dataframe = self.maybe_filter_out_long_prompts(self.dataframe)
-
-    #     # Save processed dataset to cache
-    #     print(f"Saving dataset to cache: {cache_file}")
-    #     torch.save(self.dataframe, cache_file)
-
-    #     print(f"Final dataset len: {len(self.dataframe)}")
-
 
     def _read_files_and_tokenize(self):
         dataframes = []
