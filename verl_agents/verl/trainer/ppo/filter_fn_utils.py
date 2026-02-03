@@ -9,6 +9,7 @@ from enum import Enum
 from pprint import pprint
 from typing import Dict, Type
 import numpy as np
+import torch
 
 from verl.workers.agent.parallel_env import EndReasonEnum
 
@@ -220,6 +221,90 @@ def end_reason_filtering_fn(new_batch, extra_filtering_config=None):
     new_batch = new_batch[kept_traj_idxs]
     return new_batch, end_reason_filter_reason
 
+# def pos_sample_neg_adv_filtering_fn(new_batch, extra_filtering_config=None):
+#     is_correct_list = batch.non_tensor_batch["is_answer_right"]
+#     advantages = batch.batch["advantages"]
+
+#     max_response_length = batch.batch["responses"].shape[-1]
+#     prompt_mask = batch.batch['attention_mask'][:, :-max_response_length].bool()
+#     action_or_attn_mask = batch.batch['action_mask'] if 'action_mask' in batch.batch else batch.batch['attention_mask']
+#     response_mask = action_or_attn_mask[:, -max_response_length:].bool()
+
+#     # 计算每个样本的sequence级别的优势
+#     sequence_advantages = []
+#     for i in range(len(is_correct_list)):
+#         # 选择当前样本的有效token的优势
+#         sample_advantages = advantages[i][response_mask[i]]
+#         # 计算平均优势
+#         if len(sample_advantages) > 0:
+#             seq_adv = torch.mean(sample_advantages).item()
+#         else:
+#             seq_adv = 0.0
+#         sequence_advantages.append(seq_adv)
+
+#     pos_sample_indices = [i for i, is_correct in enumerate(is_correct_list) if is_correct]
+#     pos_sample_count = len(pos_sample_indices)
+#     pos_sample_pos_adv_num = 0
+#     pos_sample_neg_adv_num = 0
+    
+#     if pos_sample_count > 0:
+#         for idx in pos_sample_indices:
+#             if sequence_advantages[idx] > 0:
+#                 pos_sample_pos_adv_num += 1
+#             elif sequence_advantages[idx] < 0:
+#                 pos_sample_neg_adv_num += 1
+
+#     return new_batch
+
+def pos_sample_neg_adv_filtering_fn(new_batch):
+    """
+    过滤掉批次中“positive sample”但其序列级别优势为负的样本。
+
+    Args:
+        new_batch: 包含批次数据的对象。
+
+    Returns:
+        Tuple[MockBatch, dict]: 过滤后的批次和过滤原因记录。
+    """
+    # --- 1. 预先计算所有样本的序列级别优势 ---
+    is_correct_list = new_batch.non_tensor_batch["is_answer_right"]
+    advantages = new_batch.batch["advantages"]
+    max_response_length = new_batch.batch["responses"].shape[-1]
+    action_or_attn_mask = new_batch.batch.get('action_mask', new_batch.batch['attention_mask'])
+    response_mask = action_or_attn_mask[:, -max_response_length:].bool()
+
+    sequence_advantages = []
+    for i in range(len(is_correct_list)):
+        sample_advantages = advantages[i][response_mask[i]]
+        seq_adv = torch.mean(sample_advantages).item() if len(sample_advantages) > 0 else 0.0
+        sequence_advantages.append(seq_adv)
+
+    # --- 2. 遵循参考格式进行过滤 ---
+    kept_indices = []
+    filter_reason = {
+        "pos_neg_adv:kept": [],
+        "pos_neg_adv:filtered_pos_with_neg_adv": [],
+    }
+
+    for idx in range(len(is_correct_list)):
+        is_correct = is_correct_list[idx]
+        seq_adv = sequence_advantages[idx]
+
+        # 过滤条件：是 positive sample 且优势为负
+        if is_correct and seq_adv < 0:
+            filter_reason["pos_neg_adv:filtered_pos_with_neg_adv"].append(idx)
+        else:
+            # 保留所有其他情况
+            kept_indices.append(idx)
+            filter_reason["pos_neg_adv:kept"].append(idx)
+
+    print(f"[INFO batch filter] pos/neg adv filtering: {len(new_batch)} -> {len(kept_indices)} samples")
+
+    # 假设 new_batch 对象支持通过索引列表进行切片
+    filtered_batch = new_batch[kept_indices]
+
+    return filtered_batch, filter_reason
+
 def end_reason_filtering_fn_validation(new_batch, extra_filtering_config=None):
     """
     根据轨迹的结束原因对批次进行过滤。
@@ -305,54 +390,11 @@ def rollout_filtering_function(new_batch, metric_name_list, extra_filtering_conf
     if "end_reason" in metric_name_list:
         new_batch, end_reason_filter_reason = end_reason_filtering_fn(new_batch, extra_filtering_config)
 
+    if "pos_sample_neg_adv" in metric_name_list:
+        new_batch, pos_sample_neg_adv_filter_reason = pos_sample_neg_adv_filtering_fn(new_batch)
+
     return new_batch
 
-
-# def rollout_filtering_function_validation(new_batch, metric_name_list, extra_filtering_config=None):
-#     """
-#     按顺序应用多个过滤函数，并返回最终过滤后的批次、所有被过滤掉的批次以及所有过滤原因。
-
-#     参数:
-#         new_batch: 原始批次数据。
-#         metric_name_list: 需要应用的过滤指标名称列表，例如 ["trajlength", "end_reason"]。
-#         extra_filtering_config: 可选配置字典，用于传递给具体的过滤函数。
-
-#     返回:
-#         tuple:
-#             - final_batch (Batch): 经过所有过滤后的最终批次。
-#             - all_filtered_out_batches (list[Batch]): 一个列表，包含每个过滤步骤中被过滤掉的批次。
-#                                                      列表中的顺序与 metric_name_list 中过滤器的应用顺序一致。
-#             - all_filter_reasons (list[dict]): 一个列表，包含每个过滤步骤的详细原因字典。
-#                                                列表中的顺序与 metric_name_list 中过滤器的应用顺序一致。
-#     """
-#     print(f"[INFO batch filter validation] rolling out filtering on metrics: {metric_name_list}")
-
-#     # --- 核心修改部分 1: 初始化列表来收集所有过滤结果 ---
-#     all_filtered_out_batches = []
-#     all_filter_reasons = []
-
-#     ori_new_batch = new_batch
-
-#     # 假设 trajlength_filtering_fn_validation 已经被修改为返回 (new_batch, filtered_out_batch, reason)
-#     if "trajlength" in metric_name_list:
-#         new_batch, filtered_out_batch, trajlength_filter_reason, kept_traj_idxs_trajlength, filtered_traj_idxs_trajlength = trajlength_filtering_fn_validation(ori_new_batch)
-#         # 将本次过滤的结果收集到列表中
-#         all_filtered_out_batches.extend(filtered_out_batch)
-#         all_filter_reasons.extend(trajlength_filter_reason)
-
-#     # 假设 end_reason_filtering_fn_validation 已经被修改为返回 (new_batch, filtered_out_batch, reason)
-#     if "end_reason" in metric_name_list:
-#         new_batch, filtered_out_batch, end_reason_filter_reason, kept_traj_idxs_end_reason, filtered_traj_idxs_end_reason = end_reason_filtering_fn_validation(ori_new_batch, extra_filtering_config)
-#         # 将本次过滤的结果收集到列表中
-#         all_filtered_out_batches.extend(filtered_out_batch)
-#         all_filter_reasons.extend(end_reason_filter_reason)
-
-#     # --- 核心修改部分 2: 更新返回值，包含所有收集到的信息 ---
-#     return new_batch, all_filtered_out_batches, all_filter_reasons
-
-# 假设 Batch 对象有一个 select 方法，可以根据索引列表创建一个新的 Batch 子集。
-# 如果没有，你可能需要手动从原始批次中提取数据。
-# 例如: new_batch_data = {key: [original_batch_data[key][i] for i in indices] for key in original_batch_data}
 def rollout_filtering_function_validation(new_batch, metric_name_list, extra_filtering_config=None):
     """
     按顺序应用多个过滤函数，并基于索引返回最终过滤后的批次、所有被过滤掉的批次、

@@ -1,0 +1,15 @@
+pillow
+matplotlib
+numpy
+timeout-decorator
+pebble
+regex
+markdown
+pytesseract
+scikit-image
+scipy
+scikit-learn
+easyocr
+webcolors<24.6.0
+nltk
+decord

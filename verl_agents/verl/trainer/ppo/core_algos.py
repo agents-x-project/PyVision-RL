@@ -178,6 +178,72 @@ def compute_grpo_outcome_advantage(
                 samples_std_list.append(id2std[index[i]])
             else:
                 scores[i] = scores[i] - id2mean[index[i]]
+                samples_std_list.append(id2std[index[i]])
+        scores = scores.unsqueeze(-1) * response_mask
+
+    samples_std_list = np.array(samples_std_list)
+
+    return scores, scores, samples_std_list
+
+
+def compute_grpo_outcome_advantage_w_anb(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    epsilon: float = 1e-6,
+    norm_adv_by_std_in_grpo: str = True,
+):
+    """
+    Compute advantage for GRPO, operating only on Outcome reward
+    (with only one scalar reward for each response).
+    Args:
+        token_level_rewards: `(torch.Tensor)`
+            shape: (bs, response_length)
+        response_mask: `(torch.Tensor)`
+            shape: (bs, response_length)
+        norm_adv_by_std_in_grpo: (bool)
+            whether to scale the GRPO advantage.
+            If True, the advantage is scaled by the std, as in the original GRPO.
+            If False, the advantage is not scaled, as in Dr.GRPO (https://arxiv.org/abs/2503.20783).
+
+    Returns:
+        advantages: `(torch.Tensor)`
+            shape: (bs, response_length)
+        Returns: `(torch.Tensor)`
+            shape: (bs, response_length)
+    """
+    scores = token_level_rewards.sum(dim=-1)
+    samples_std_list = []
+
+    id2score = defaultdict(list)
+    id2mean = {}
+    id2std = {}
+
+    with torch.no_grad():
+        bsz = scores.shape[0]
+        for i in range(bsz):
+            # id2score[index[i]].append(scores[i])
+            if scores[i] == 0.0:
+                acc_score = 0.0
+            else:
+                acc_score = 1.0
+            id2score[index[i]].append(acc_score)
+        for idx in id2score:
+            if len(id2score[idx]) == 1:
+                id2mean[idx] = torch.tensor(0.0)
+                id2std[idx] = torch.tensor(1.0)
+            elif len(id2score[idx]) > 1:
+                id2mean[idx] = torch.mean(torch.tensor(id2score[idx]))
+                id2std[idx] = torch.std(torch.tensor([id2score[idx]]))
+            else:
+                raise ValueError(f"no score in prompt index: {idx}")
+        for i in range(bsz):
+            if norm_adv_by_std_in_grpo:
+                scores[i] = (scores[i] - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
+                samples_std_list.append(id2std[index[i]])
+            else:
+                scores[i] = scores[i] - id2mean[index[i]]
+                samples_std_list.append(id2std[index[i]])
         scores = scores.unsqueeze(-1) * response_mask
 
     samples_std_list = np.array(samples_std_list)
