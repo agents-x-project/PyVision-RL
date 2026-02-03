@@ -32,23 +32,8 @@ see https://github.com/Visual-Agent/DeepEyes
 
 For the interaction environment, make sure these Python packages have been installed.
 ```bash
-pillow
-matplotlib
-numpy
-timeout-decorator
-pebble
-regex
-markdown
-pytesseract
-scikit-image
-scipy
-scikit-learn
-easyocr
-webcolors<24.6.0
-nltk
-decord
+pip install -r pv_requirements.txt
 ```
-
 
 ### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge
 ```bash
@@ -74,9 +59,11 @@ Finally, prepare the llm-as-a-judge config file. the `api_key` is useless, just 
 
 ### Train
 After serving the llm-as-a-judge and making sure it works well, you could start to train. 
-Note: I strictly followed `verl`'s doc to start the multi-node RL training. If you want more detail, please check `verl`'s doc.
+<!-- Note: I strictly followed `verl`'s doc to start the multi-node RL training. If you want more detail, please check `verl`'s doc. -->
 
-#### Validation Dataset Format
+#### Validation Dataset Format (Optional)
+
+If you want to incorporate validation in the RL training, first prepare the validation data.
 
 For image validation dataset:
 ```bash
@@ -88,7 +75,7 @@ For image validation dataset:
         "answer": "A",
         "ability": "visual_search",
         "data_source": "vstar",
-        "image_path": "/inspire/hdd/global_user/zhangkaipeng-24043/val_global/dataset/PyVision_eval/raw/vstar_bench/direct_attributes/sa_4690.jpg"
+        "image_path": "/path/to/vstar_bench/direct_attributes/sa_4690.jpg"
     },
     ...
 ]
@@ -112,12 +99,11 @@ For video validation dataset:
 
 #### Training Script
 ```bash
-# ./verl_agents/examples/agent/train_pyvision_rl_7b_v4.sh
 # This is an example training script, you could create a new one.
 # For every training parameter explaination, check ./verl_agents/verl/trainer/config/ppo_trainer.yaml
 
-PROJECT_NAME="pyvision-rl-v0"
-EXPERIMENT_NAME="pyvision-rl"
+PROJECT_NAME="pyvision-rl"
+EXPERIMENT_NAME="pyvision-image"
 
 current_time=$(date '+%m%d-%H%M%S')
 EXPERIMENT_NAME="${EXPERIMENT_NAME}-${current_time}"
@@ -127,7 +113,7 @@ export OUTPUT_BASE_DIR="/path/to/the/training/output/${EXPERIMENT_NAME}"
 ##################################################################################################
 #                                           WandB Setup                                          #
 ##################################################################################################
-export WANDB_MODE=offline  # setup the wandb
+export WANDB_MODE=offline  # setup the wandb, you could also set it to 'online'.
 export WANDB_RUN_ID=$EXPERIMENT_NAME
 export WANDB_RESUME="allow"
 export WANDB_DIR=$OUTPUT_BASE_DIR
@@ -141,30 +127,26 @@ cp "$0" "$OUTPUT_BASE_DIR/"
 
 export TMPDIR="$HOME/tmp/ray"
 export HYDRA_FULL_ERROR=1
-export LLM_AS_A_JUDGE_CONFIG_PATH=./configs/llm_as_a_judge.json
+export LLM_AS_A_JUDGE_CONFIG_PATH="/path/to/configs/llm_as_a_judge.json"
 
 
 ##################################################################################################
 #                                 Training Data Path Parameter                                   #
-##################################################################################################
+##################################################################################################                                                               
                                                                                                                                                         
-# If with mm hint in the input, the data path should be the dir path containing the parquet files.                                                      
-PYVISION_DATASET_DIR_DEEPEYES=./rl_data/filtered_deepeyes_visual_search_parquet_files                                                                   
-                                                                                                                                                        
-# If without mm hint in the input, the data path should be json file path.                                                                              
-                                                                                                                                                        
-PYVISION_IMAGE_DATASET_WO_MM_HINT=./rl_data/deepeyes/train_data_wo_mm_hint_full_path.json                                                               
-PYVISION_VIDEO_DATASET_WO_MM_HINT=./rl_data/vsi/train_data_wo_mm_hint_full_path.json    
+# For PyVision-Image, the data json file path should be:
+PYVISION_IMAGE_RL_DATA=/path/to/PyVision-Image-RL-Data/pyvision_image_rl_data.json
+                                                                                                                
+# For PyVision-Video, the data json file path should be:
+PYVISION_VIDEO_RL_DATA=/path/to/PyVision-Video-RL-Data/pyvision_video_rl_data.json
 
-MATHVISTA_BENCH=""
-                                                                                                                                                        
+VSTAR_BENCH=/inspire/hdd/project/qproject-assement/zhangkaipeng-24043/zhaoshitian/dataset/vstar/vstar_pv_form_image_val_dataset.json 
 
 ##################################################################################################
 #                                    Data Loading Parameter                                      #
 ##################################################################################################
-prompt_template_path=./verl_agents/verl/utils/dataset/rl_system_prompt_template.json
-gen_batch_size=64   
-max_video_gen_batch_size=32     # 32 might cause OOM in longvila
+gen_batch_size=32   
+max_video_gen_batch_size=16     # 32 might cause OOM for long videos
 gen_batch_size_align_method="up_resample_image"     # up_resample_image: resample prompts from dataloader to fill discarded prompts with video
 
 
@@ -173,8 +155,8 @@ gen_batch_size_align_method="up_resample_image"     # up_resample_image: resampl
 ##################################################################################################
 enable_filter_groups=True  
 std_sort_enable=True                                                                      
-filter_groups_metric='seq_reward,hasimage,trajlength,vtoken_images_num_consis,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`                                                        
-end_reason_filter_reserve_names='DONE'     # Options: [ON_GONIG, DONE, OVER_LENGTH, EXCEED_MAX_TURNS, EXCEED_MAX_IMAGE_NUM_32, ERROR_IN_ACTION]
+filter_groups_metric='seq_reward,hasimage,trajlength,vtoken_images_num_consis,end_reason'   # end_reason_filter_reserve_names for filtering trajs that is truncated by `verl_agents/verl/workers/agent/parallel_env.py`
+end_reason_filter_reserve_names='DONE,EXCEED_MAX_TURNS,ERROR_IN_ACTION'     # Options: [ON_GONIG, DONE, OVER_LENGTH, EXCEED_MAX_TURNS, EXCEED_MAX_IMAGE_NUM_32, ERROR_IN_ACTION]
 max_num_gen_batches=0                                                                            
 
 
@@ -184,15 +166,20 @@ max_num_gen_batches=0
 rollout_num=8                                                                                    
 max_turn=5 
 max_turn_in_val=30                                                                                      
-tool_using_cumulative_reward_per_turn=0.0
+tool_using_cumulative_reward_per_turn=0.1
 concurrent_workers=64  # the worker num used for vlm-env interaction
+prompt_template_path=./verl_agents/verl/utils/dataset/rl_system_prompt_template.json
+min_pixels=3136
+max_pixels=2000000
+
+norm_adv_by_std_in_grpo=False
                                                                                                  
-with_mm_hint=False                                                                               
+with_mm_hint=True # 'True' for PyVision-Image and 'False' for PyVision-Video                                                                             
 WORLD_SIZE=1  
 
-REF_MODEL_PATH=/the/path/to/your/download/sft/ckpts
-TRAIN_DATA_JSON_TOTAL="${PYVISION_IMAGE_DATASET_WO_MM_HINT},${PYVISION_VIDEO_DATASET_WO_MM_HINT}"
-TEST_DATA_JSON_TOTAL="${MATHVISTA_BENCH}"
+REF_MODEL_PATH=/the/path/to/your/download/sft/ckpt
+TRAIN_DATA_JSON_TOTAL="${PYVISION_IMAGE_RL_DATA}"
+TEST_DATA_JSON_TOTAL="${VSTAR_BENCH}"
 
 echo "============================"
 echo "Launched Training: ${PROJECT_NAME}"
@@ -211,6 +198,8 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     data.return_raw_chat=True \
     data.filter_overlong_prompts=True \
     data.with_mm_hint=${with_mm_hint} \
+    +data.min_pixels=${min_pixels} \
+    +data.max_pixels=${max_pixels} \
     +data.prompt_template_path=${prompt_template_path} \
     +data.gen_batch_size=${gen_batch_size} \
     +data.max_video_gen_batch_size=${max_video_gen_batch_size} \   
@@ -220,7 +209,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.model.path=${REF_MODEL_PATH} \
     actor_rollout_ref.model.use_remove_padding=True \
     actor_rollout_ref.actor.optim.lr=1e-6 \
-    actor_rollout_ref.actor.ppo_mini_batch_size=64 \
+    actor_rollout_ref.actor.ppo_mini_batch_size=16 \
     actor_rollout_ref.actor.ppo_micro_batch_size_per_gpu=4 \
     actor_rollout_ref.actor.use_kl_loss=False \
     actor_rollout_ref.actor.kl_loss_coef=0.0 \
@@ -228,6 +217,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.actor.entropy_coeff=0.0 \
     actor_rollout_ref.actor.checkpoint.contents=['model','hf_model','optimizer','extra'] \
     actor_rollout_ref.actor.ulysses_sequence_parallel_size=1 \
+    algorithm.norm_adv_by_std_in_grpo=${norm_adv_by_std_in_grpo} \
     algorithm.filter_groups.enable=${enable_filter_groups} \
     +algorithm.filter_groups.std_sort_enable=${std_sort_enable} \
     algorithm.filter_groups.max_num_gen_batches=${max_num_gen_batches} \
@@ -238,7 +228,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     actor_rollout_ref.rollout.name=vllm \
     actor_rollout_ref.rollout.n=${rollout_num} \
     actor_rollout_ref.rollout.max_num_batched_tokens=32768 \
-    actor_rollout_ref.rollout.gpu_memory_utilization=0.8 \
+    actor_rollout_ref.rollout.gpu_memory_utilization=0.85 \
     actor_rollout_ref.rollout.enforce_eager=False \
     actor_rollout_ref.rollout.free_cache_engine=False \
     actor_rollout_ref.rollout.enable_chunked_prefill=False \
@@ -258,7 +248,7 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
     trainer.the_first_batch_rollout_data_dir=${FIRST_ROLLOUT_SAVE_DIR_PATH}/${PROJECT_NAME}/${EXPERIMENT_NAME} \
     trainer.critic_warmup=0 \
     trainer.logger=['console','wandb','rl_logging_board'] \
-    trainer.val_before_train=True \
+    trainer.val_before_train=False \
     trainer.n_gpus_per_node=8 \
     trainer.nnodes=${WORLD_SIZE} \
     trainer.save_freq=10 \
@@ -311,20 +301,6 @@ bash scripts/run_merge.sh
 
 #### Test
 see https://github.com/agents-x-project/TIR-Data-Synthesis
-
-### Some details about this codebase.
-1. Where is the agent inference code?
-- ./verl_agents/verl/workers/agent/envs/agents_x
-- ./verl_agents/verl/workers/agent/parallel_env.py
-
-2. Where is the partial dynamic filtering code?
-- ./verl_agents/verl/trainer/ppo/ray_trainer.py (L1089 ~ L1136)
-
-3. Where is the reward function definition code?
-- ./verl_agents/verl/utils/reward_score/vl_agent.py (L214 ~ L316)
-
-4. There are some thicky points about calling llm-as-a-judge serving API and logging the training record to WandB.
-- If your machine does not need a proxy to access the internet, just ignore this section. If not, remember, to call the llm-as-a-judge API scussessfully, no proxy on the API's IP.
 
 
 ## 3. Reference Resources
