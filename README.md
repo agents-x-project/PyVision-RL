@@ -1,6 +1,35 @@
-# PyVision-RL Training
+<div align="center">
 
-### Prepare the RL data and SFT ckpts
+#  PyVision: Agentic Vision with Dynamic Tooling
+
+
+
+<a href="https://arxiv.org/abs/2507.07998" target="_blank">
+    <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVision-red?logo=arxiv" height="20" />
+</a>
+<a href="https://agent-x.space/" target="_blank">
+    <img alt="Website" src="https://img.shields.io/badge/🌎_Homepage-blue.svg" height="20" />
+</a>
+<a href="https://huggingface.co/spaces/Agents-X/PyVision" target="_blank">
+    <img alt="HF Model: ViGaL" src="https://img.shields.io/badge/%F0%9F%A4%97%20_Demo-PyVision-ffc107?color=ffc107&logoColor=white" height="20" />
+</a>
+
+
+</div>
+
+## 🎯Overview
+LLMs are increasingly deployed as agents, systems capable of planning, reasoning, and dynamically calling external tools. However, in visual reasoning, prior approaches largely remain limited by predefined workflows and static toolsets. In this report, we present `PyVision`, an interactive, multi-turn framework that enables MLLMs to autonomously generate, execute, and refine Python-based tools tailored to the task at hand, unlocking flexible and interpretable problem-solving. We develop a taxonomy of the tools created by PyVision and analyze their usage across a diverse set of benchmarks. Quantitatively, PyVision achieves consistent performance gains, boosting GPT-4.1 by +7.8\% on V* and Claude-4.0-Sonnet by +31.1\% on VLMsAreBlind-mini. These results point to a broader shift: dynamic tooling allows models not just to use tools, but to invent them, advancing toward more agentic visual reasoning.
+
+## 🚩News
+- [2025-7-8] 🚀🚀🚀 We are excited to release `PyVision`, inluding:
+  - [Techniqual report](https://arxiv.org/abs/2507.07998), code and [online demo](https://huggingface.co/spaces/Agents-X/PyVision).
+
+## 📋Contents
+- [Intallation](#installation)
+- [Run](#run)
+- [Citation](#citation)
+
+## Prepare the RL data and SFT ckpts
 
 #### PyVision-Image
 
@@ -14,7 +43,7 @@ SFT ckpt: https://huggingface.co/Agents-X/PyVision-Video-7B-SFT
 
 RL data: https://huggingface.co/datasets/Agents-X/PyVision-Video-RL-Data
 
-### Installation For RL
+## 📦Installation
 
 see https://github.com/Visual-Agent/DeepEyes
 
@@ -28,14 +57,14 @@ see https://github.com/Visual-Agent/DeepEyes
 # 2. vllm==0.9.1
 ```
 
-### Installation For PyVision-Interaction
+#### Installation For PyVision-Interaction
 
 For the interaction environment, make sure these Python packages have been installed.
 ```bash
 pip install -r pv_requirements.txt
 ```
 
-### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge
+#### Serve Qwen2.5-72B-Instruct for LLM-as-a-Judge
 ```bash
 cd verl_agents
 sbatch ./slurm_scripts/sbatch_serve_llm.sh
@@ -57,7 +86,7 @@ Finally, prepare the llm-as-a-judge config file. the `api_key` is useless, just 
 }
 ```
 
-### Train
+## 💥Train
 After serving the llm-as-a-judge and making sure it works well, you could start to train. 
 <!-- Note: I strictly followed `verl`'s doc to start the multi-node RL training. If you want more detail, please check `verl`'s doc. -->
 
@@ -291,7 +320,7 @@ Finally, start training.
 sbatch ./slurm_scripts/ray_train.sh
 ``` -->
 
-### Evaluation
+## Evaluation
 
 #### Model Merge
 ```bash
@@ -308,3 +337,13 @@ see https://github.com/agents-x-project/TIR-Data-Synthesis
 - https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L153
 - https://github.com/bytedance/SandboxFusion
 - https://github.com/QwenLM/Qwen-Agent -->
+
+## 📜Citation
+```bibtex
+@article{zhao2025pyvision,
+  title={PyVision-RL: Forging Open Agentic Vision Models via RL.},
+  author={Zhao, Shitian and Lin, Shaoheng and Li, Ming and Zhang, Haoquan and Peng, Wenshuo and Zhang, Kaipeng and Wei, Chen},
+  journal={arxiv preprint arxiv:2507.07998},
+  year={2026},
+}
+```
