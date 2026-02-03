@@ -140,7 +140,7 @@ PYVISION_IMAGE_RL_DATA=/path/to/PyVision-Image-RL-Data/pyvision_image_rl_data.js
 # For PyVision-Video, the data json file path should be:
 PYVISION_VIDEO_RL_DATA=/path/to/PyVision-Video-RL-Data/pyvision_video_rl_data.json
 
-VSTAR_BENCH=/inspire/hdd/project/qproject-assement/zhangkaipeng-24043/zhaoshitian/dataset/vstar/vstar_pv_form_image_val_dataset.json 
+VSTAR_BENCH=/path/to/vstar/vstar_pv_form_image_val_dataset.json 
 
 ##################################################################################################
 #                                    Data Loading Parameter                                      #
@@ -151,7 +151,7 @@ gen_batch_size_align_method="up_resample_image"     # up_resample_image: resampl
 
 
 ##################################################################################################
-#                                    Dynamic Sampling Parameter                                  #
+#                                     Filter-Ranker Parameter                                    #
 ##################################################################################################
 enable_filter_groups=True  
 std_sort_enable=True                                                                      
@@ -264,11 +264,10 @@ PYTHONUNBUFFERED=1 python3 -m verl.trainer.main_ppo \
 
 #### Single Node
 ```bash
-# TODO
 bash run_train.sh
 ```
 
-#### Multiple Nodes
+<!-- #### Multiple Nodes
 First, setup a ray cluster, including the head cluster (pure CPU) and worker cluster (GPU nodes). For example, if you want to train on 16 GPUs, you need to start two GPU nodes as the ray worker clusters.
 ```bash
 # Start the ray head cluster
@@ -290,7 +289,7 @@ Then, you need to change the llm-as-a-judge IP address to the Python file: `./ve
 Finally, start training.
 ```bash
 sbatch ./slurm_scripts/ray_train.sh
-```
+``` -->
 
 ### Evaluation
 
@@ -303,9 +302,9 @@ bash scripts/run_merge.sh
 see https://github.com/agents-x-project/TIR-Data-Synthesis
 
 
-## 3. Reference Resources
+<!-- ## 3. Reference Resources
 - https://github.com/volcengine/verl/blob/c803b1f76936f134f919f13ebd668473f4f661ed/verl/utils/dataset/multiturn_sft_dataset.py#L108
 - https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L206
 - https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L153
 - https://github.com/bytedance/SandboxFusion
-- https://github.com/QwenLM/Qwen-Agent
+- https://github.com/QwenLM/Qwen-Agent -->
