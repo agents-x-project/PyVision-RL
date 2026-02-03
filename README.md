@@ -1,8 +1,6 @@
 <div align="center">
 
-#  PyVision: Agentic Vision with Dynamic Tooling
-
-
+#  PyVision-RL: Forging Open Agentic Vision Models via RL.
 
 <a href="https://arxiv.org/abs/2507.07998" target="_blank">
     <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVision-red?logo=arxiv" height="20" />
@@ -18,10 +16,10 @@
 </div>
 
 ## 🎯Overview
-LLMs are increasingly deployed as agents, systems capable of planning, reasoning, and dynamically calling external tools. However, in visual reasoning, prior approaches largely remain limited by predefined workflows and static toolsets. In this report, we present `PyVision`, an interactive, multi-turn framework that enables MLLMs to autonomously generate, execute, and refine Python-based tools tailored to the task at hand, unlocking flexible and interpretable problem-solving. We develop a taxonomy of the tools created by PyVision and analyze their usage across a diverse set of benchmarks. Quantitatively, PyVision achieves consistent performance gains, boosting GPT-4.1 by +7.8\% on V* and Claude-4.0-Sonnet by +31.1\% on VLMsAreBlind-mini. These results point to a broader shift: dynamic tooling allows models not just to use tools, but to invent them, advancing toward more agentic visual reasoning.
+Reinforcement learning for agentic multimodal models often suffers from interaction collapse, where models learn to reduce tool usage and multi-turn reasoning, limiting the benefits of agentic behavior. We introduce `PyVision-RL`, a reinforcement learning framework for open-weight multimodal models that stabilizes training and sustains interaction. Our approach combines an oversampling–filtering–ranking rollout strategy with an accumulative tool reward to prevent collapse and encourage multi-turn tool use. Using a unified training pipeline, we develop `PyVision-Image` and `PyVision-Video` for image and video understanding. For video reasoning, PyVision-Video employs on-demand context construction, selectively sampling task-relevant frames during reasoning to significantly reduce visual token usage. Experiments show strong performance and improved efficiency, demonstrating that sustained interaction and on-demand visual processing are critical for scalable multimodal agents.
 
 ## 🚩News
-- [2025-7-8] 🚀🚀🚀 We are excited to release `PyVision`, inluding:
+- [2026-7-8] 🚀🚀🚀 We are excited to release `PyVision-RL`, inluding:
   - [Techniqual report](https://arxiv.org/abs/2507.07998), code and [online demo](https://huggingface.co/spaces/Agents-X/PyVision).
 
 ## 📋Contents
@@ -29,7 +27,7 @@ LLMs are increasingly deployed as agents, systems capable of planning, reasoning
 - [Run](#run)
 - [Citation](#citation)
 
-## Prepare the RL data and SFT ckpts
+## 📦Prepare the RL data and SFT ckpts
 
 #### PyVision-Image
 
@@ -43,7 +41,7 @@ SFT ckpt: https://huggingface.co/Agents-X/PyVision-Video-7B-SFT
 
 RL data: https://huggingface.co/datasets/Agents-X/PyVision-Video-RL-Data
 
-## 📦Installation
+## 🔧Installation
 
 see https://github.com/Visual-Agent/DeepEyes
 
@@ -320,7 +318,7 @@ Finally, start training.
 sbatch ./slurm_scripts/ray_train.sh
 ``` -->
 
-## Evaluation
+## 📊Evaluation
 
 #### Model Merge
 ```bash
