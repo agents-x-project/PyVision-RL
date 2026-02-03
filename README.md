@@ -20,11 +20,13 @@ Reinforcement learning for agentic multimodal models often suffers from interact
 
 ## 🚩News
 - [2026-7-8] 🚀🚀🚀 We are excited to release `PyVision-RL`, inluding:
-  - [Techniqual report](https://arxiv.org/abs/2507.07998), code and [online demo](https://huggingface.co/spaces/Agents-X/PyVision).
+  - [Techniqual report](https://arxiv.org/abs/2507.07998), code, [models&data of PyVision-Image](https://huggingface.co/collections/Agents-X/pyvision-image) and [models&data of PyVision-Video](https://huggingface.co/collections/Agents-X/pyvision-video).
 
 ## 📋Contents
-- [Intallation](#installation)
-- [Run](#run)
+- [Prepare the RL data and SFT ckpts](#prepare_the_rl_data_and_sft_ckpts)
+- [Installation](#installation)
+- [Train](#train)
+- [Evaluation](#evaluation)
 - [Citation](#citation)
 
 ## 📦Prepare the RL data and SFT ckpts
