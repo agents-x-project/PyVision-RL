@@ -1,21 +1,18 @@
-# PyVision RL Training
+# PyVision-RL Training
 
 ### Prepare the RL data and SFT ckpts
 
-#### With Multi-modal Hint in the Input
+#### PyVision-Image
 
-SFT ckpts: https://huggingface.co/Agents-X/sft-data-v2-Qwen2.5-VL-7B-1epoch
+SFT ckpt: https://huggingface.co/Agents-X/PyVision-Image-7B-SFT
 
-RL data: https://huggingface.co/datasets/Agents-X/de_visual_search_filtered
-(parquet files)
+RL data: https://huggingface.co/datasets/Agents-X/PyVision-Image-RL-Data
 
-#### Without Multi-modal Hint in the Input
+#### PyVision-Video
 
-Image Dataset wo Image Hint: https://huggingface.co/datasets/Agents-X/rl_data_de_visual_search_filtered_wo_image_hint
+SFT ckpt: https://huggingface.co/Agents-X/PyVision-Video-7B-SFT
 
-Video Dataset wo Video Hint: https://huggingface.co/datasets/Agents-X/rl_data_vsi_filtered_wo_video_hint
-
-SFT ckpts: https://huggingface.co/Agents-X/qwen2_5vl_7b_full_sft_251013_all_wo_hint-EMA
+RL data: https://huggingface.co/datasets/Agents-X/PyVision-Video-RL-Data
 
 ### Installation For RL
 
