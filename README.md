@@ -1,6 +1,6 @@
 <div align="center">
 
-#  PyVision-RL: Forging Open Agentic Vision Models via RL.
+##  PyVision-RL: Forging Open Agentic Vision Models via RL.
 
 <a href="https://arxiv.org/abs/2507.07998" target="_blank">
     <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVision-red?logo=arxiv" height="20" />
