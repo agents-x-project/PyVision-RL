@@ -328,7 +328,7 @@ bash scripts/run_merge.sh
 ```
 
 #### Test
-see https://github.com/agents-x-project/TIR-Data-Synthesis
+see https://github.com/agents-x-project/PyVision-RL-Eval
 
 
 <!-- ## 3. Reference Resources
