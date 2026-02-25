@@ -19,7 +19,7 @@
 Reinforcement learning for agentic multimodal models often suffers from interaction collapse, where models learn to reduce tool usage and multi-turn reasoning, limiting the benefits of agentic behavior. We introduce `PyVision-RL`, a reinforcement learning framework for open-weight multimodal models that stabilizes training and sustains interaction. Our approach combines an oversampling–filtering–ranking rollout strategy with an accumulative tool reward to prevent collapse and encourage multi-turn tool use. Using a unified training pipeline, we develop `PyVision-Image` and `PyVision-Video` for image and video understanding. For video reasoning, PyVision-Video employs on-demand context construction, selectively sampling task-relevant frames during reasoning to significantly reduce visual token usage. Experiments show strong performance and improved efficiency, demonstrating that sustained interaction and on-demand visual processing are critical for scalable multimodal agents.
 
 ## 🚩News
-- [2026-7-8] 🚀🚀🚀 We are excited to release `PyVision-RL`, inluding:
+- [2026-2-25] 🚀🚀🚀 We are excited to release `PyVision-RL`, inluding:
   - [Techniqual report](https://arxiv.org/abs/2602.20739), code, [models&data of PyVision-Image](https://huggingface.co/collections/Agents-X/pyvision-image) and [models&data of PyVision-Video](https://huggingface.co/collections/Agents-X/pyvision-video).
 
 ## 📋Contents
