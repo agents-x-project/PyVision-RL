@@ -3,13 +3,13 @@
 ##  PyVision-RL: Forging Open Agentic Vision Models via RL.
 
 <a href="https://arxiv.org/abs/2602.20739" target="_blank">
-    <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVision-red?logo=arxiv" height="20" />
+    <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVision-RL-red?logo=arxiv" height="20" />
 </a>
 <a href="https://agent-x.space/" target="_blank">
     <img alt="Website" src="https://img.shields.io/badge/🌎_Homepage-blue.svg" height="20" />
 </a>
 <a href="https://huggingface.co/papers/2602.20739" target="_blank">
-    <img alt="HF Model: ViGaL" src="https://img.shields.io/badge/%F0%9F%A4%97%20_Model&Data-PyVision-ffc107?color=ffc107&logoColor=white" height="20" />
+    <img alt="HF Model: ViGaL" src="https://img.shields.io/badge/%F0%9F%A4%97%20_Model&Data-PyVision-RL-ffc107?color=ffc107&logoColor=white" height="20" />
 </a>
 
 
