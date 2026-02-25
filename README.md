@@ -2,13 +2,13 @@
 
 ##  PyVision-RL: Forging Open Agentic Vision Models via RL.
 
-<a href="https://arxiv.org/abs/2507.07998" target="_blank">
+<a href="https://arxiv.org/abs/2602.20739" target="_blank">
     <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVision-red?logo=arxiv" height="20" />
 </a>
 <a href="https://agent-x.space/" target="_blank">
     <img alt="Website" src="https://img.shields.io/badge/🌎_Homepage-blue.svg" height="20" />
 </a>
-<a href="https://huggingface.co/spaces/Agents-X/PyVision" target="_blank">
+<a href="https://huggingface.co/papers/2602.20739" target="_blank">
     <img alt="HF Model: ViGaL" src="https://img.shields.io/badge/%F0%9F%A4%97%20_Demo-PyVision-ffc107?color=ffc107&logoColor=white" height="20" />
 </a>
 
@@ -330,20 +330,12 @@ bash scripts/run_merge.sh
 #### Test
 see https://github.com/agents-x-project/PyVision-RL-Eval
 
-
-<!-- ## 3. Reference Resources
-- https://github.com/volcengine/verl/blob/c803b1f76936f134f919f13ebd668473f4f661ed/verl/utils/dataset/multiturn_sft_dataset.py#L108
-- https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L206
-- https://github.com/volcengine/verl/blob/867d3024bf7af6aee2cd785cfd573aec561f212d/verl/trainer/ppo/ray_trainer.py#L153
-- https://github.com/bytedance/SandboxFusion
-- https://github.com/QwenLM/Qwen-Agent -->
-
 ## 📜Citation
 ```bibtex
-@article{zhao2025pyvision,
+@article{zhao2026pyvisionrl,
   title={PyVision-RL: Forging Open Agentic Vision Models via RL.},
   author={Zhao, Shitian and Lin, Shaoheng and Li, Ming and Zhang, Haoquan and Peng, Wenshuo and Zhang, Kaipeng and Wei, Chen},
-  journal={arxiv preprint arxiv:2507.07998},
+  journal={arxiv preprint arxiv:2602.20739},
   year={2026},
 }
 ```
