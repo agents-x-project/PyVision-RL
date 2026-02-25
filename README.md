@@ -5,7 +5,7 @@
 <a href="https://arxiv.org/abs/2602.20739" target="_blank">
     <img alt="arXiv" src="https://img.shields.io/badge/arXiv-PyVisionRL-red?logo=arxiv" height="20" />
 </a>
-<a href="https://agent-x.space/" target="_blank">
+<a href="https://agent-x.space/pyvision-rl/" target="_blank">
     <img alt="Website" src="https://img.shields.io/badge/🌎_Homepage-blue.svg" height="20" />
 </a>
 <a href="https://huggingface.co/papers/2602.20739" target="_blank">
