@@ -9,7 +9,7 @@
     <img alt="Website" src="https://img.shields.io/badge/🌎_Homepage-blue.svg" height="20" />
 </a>
 <a href="https://huggingface.co/papers/2602.20739" target="_blank">
-    <img alt="HF Model: ViGaL" src="https://img.shields.io/badge/%F0%9F%A4%97%20_Demo-PyVision-ffc107?color=ffc107&logoColor=white" height="20" />
+    <img alt="HF Model: ViGaL" src="https://img.shields.io/badge/%F0%9F%A4%97%20_Model&Data-PyVision-ffc107?color=ffc107&logoColor=white" height="20" />
 </a>
 
 
@@ -20,7 +20,7 @@ Reinforcement learning for agentic multimodal models often suffers from interact
 
 ## 🚩News
 - [2026-7-8] 🚀🚀🚀 We are excited to release `PyVision-RL`, inluding:
-  - [Techniqual report](https://arxiv.org/abs/2507.07998), code, [models&data of PyVision-Image](https://huggingface.co/collections/Agents-X/pyvision-image) and [models&data of PyVision-Video](https://huggingface.co/collections/Agents-X/pyvision-video).
+  - [Techniqual report](https://arxiv.org/abs/2602.20739), code, [models&data of PyVision-Image](https://huggingface.co/collections/Agents-X/pyvision-image) and [models&data of PyVision-Video](https://huggingface.co/collections/Agents-X/pyvision-video).
 
 ## 📋Contents
 - [Prepare the RL data and SFT ckpts](#prepare_the_rl_data_and_sft_ckpts)
